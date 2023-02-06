@@ -1,4 +1,4 @@
-# library-repo-template
+# exaSPIM pipeline utils
 
 [![License](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
 ![Code Style](https://img.shields.io/badge/code%20style-black-black)
@@ -15,7 +15,9 @@
 [//]: # "![GitHub release (latest by date)](https://img.shields.io/github/v/release/AllenNeuralDynamics/library-repo-template?display_name=release)"
 
 
-Template for a minimal, basic repository for an AIND library.
+Code repository to be installed in exaSPIM processing capsules.
+
+Wrapper code for ImageJ automation.
 
 ## Installation
 To use the software, in the root directory, run

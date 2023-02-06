@@ -3,10 +3,10 @@ requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "hello_world"
-description = "Prints messages to stdout. Simple boilerplate for libraries."
+name = "exaspim_pipeline_utils"
+description = "ExaSPIM pipeline utilities."
 license = {text = "MIT"}
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 authors = [
     {name = "Allen Institute for Neural Dynamics"}
 ]
@@ -17,7 +17,8 @@ readme = "README.md"
 dynamic = ["version"]
 
 dependencies = [
-    'pandas'
+    'argschema',
+    'psutil'
 ]
 
 [project.optional-dependencies]
@@ -35,12 +36,15 @@ dev = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[project.scripts]
+exaspim_pipeline = "exaspim_pipeline_utils:main"
+
 [tool.setuptools.dynamic]
-version = {attr = "hello_world.__version__"}
+version = {attr = "exaspim_pipeline_utils.__version__"}
 
 [tool.black]
-line-length = 79
-target_version = ['py36']
+line-length = 110
+target_version = ['py38']
 exclude = '''
 
 (
@@ -61,14 +65,14 @@ exclude = '''
 
 [tool.coverage.run]
 omit = ["*__init__*"]
-source = ["hello_world", "tests"]
+source = ["exaspim_pipeline_utils", "tests"]
 
 [tool.coverage.report]
 exclude_lines = ["if __name__ == .__main__.:"]
 fail_under = 100
 
 [tool.isort]
-line_length = 79
+line_length = 110
 profile = "black"
 
 [tool.interrogate]
