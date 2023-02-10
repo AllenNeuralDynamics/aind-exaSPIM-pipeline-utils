@@ -29,7 +29,6 @@ dev = [
     'interrogate',
     'isort',
     'Sphinx',
-    'pygit2',
     'furo'
 ]
 
