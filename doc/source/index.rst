@@ -4,11 +4,10 @@
    contain the root `toctree` directive.
 
 
-Welcome to this repository's documentation!
-===========================================
+ExaSPIM pipeline utilities
+==========================
 
 .. toctree::
-   :maxdepth: 2
    :caption: Contents:
 
    modules
