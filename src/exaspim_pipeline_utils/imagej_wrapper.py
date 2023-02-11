@@ -116,9 +116,9 @@ def get_auto_parameters(args: Dict) -> Dict:
     if mem_GB < 10:
         raise ValueError("Too little memory available")
 
-    process_xml = "/results/bigstitcher_{session_id}.xml".format(args)
-    macro_ip_det = "/results/macro_ip_det_{session_id}.ijm".format(args)
-    macro_ip_reg = "/results/macro_ip_reg_{session_id}.ijm".format(args)
+    process_xml = "/results/bigstitcher_{session_id}.xml".format(**args)
+    macro_ip_det = "/results/macro_ip_det_{session_id}.ijm".format(**args)
+    macro_ip_reg = "/results/macro_ip_reg_{session_id}.ijm".format(**args)
     return {'process_xml': process_xml, 'ncpu': ncpu, 'memgb': mem_GB, 'macro_ip_det': macro_ip_det,
             'macro_ip_reg': macro_ip_reg}
 
@@ -131,6 +131,7 @@ def main():
     logger = logging.getLogger()
     parser = argschema.ArgSchemaParser(schema_type=ImageJWrapperSchema)
     args = dict(parser.args)
+    print(args)
     args.update(get_auto_parameters(args))
 
     logger.info("Copying input xml %s -> %s", args['dataset_xml'], args['process_xml'])
@@ -143,7 +144,7 @@ def main():
         logger.info("Creating macro %s", args['macro_ip_det'])
         with open(args['macro_ip_det'], 'w') as f:
             f.write(ImagejMacros.get_macro_ip_det(det_params))
-        wrapper_cmd_run(["ImageJ", "-Dimagej.updater.disableAutocheck=true", "--headless", "--memory", "{memgb}G".format(args),
+        wrapper_cmd_run(["ImageJ", "-Dimagej.updater.disableAutocheck=true", "--headless", "--memory", "{memgb}G".format(**args),
                          "--console", "--run", args['macro_ip_det']], logger)
 
     if args['do_registration']:
@@ -154,7 +155,7 @@ def main():
         with open(args['macro_ip_reg'], 'w') as f:
             f.write(ImagejMacros.get_macro_ip_reg(reg_params))
         wrapper_cmd_run(
-            ["ImageJ", "-Dimagej.updater.disableAutocheck=true", "--headless", "--memory", "{memgb}G".format(args),
+            ["ImageJ", "-Dimagej.updater.disableAutocheck=true", "--headless", "--memory", "{memgb}G".format(**args),
              "--console", "--run", args['macro_ip_reg']], logger)
     logger.info("Done.")
 
