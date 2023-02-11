@@ -44,13 +44,13 @@ class ImageJWrapperSchema(argschema.ArgSchema):
 
 
 def wrapper_cmd_run(cmd: Union[str, List], logger:logging.Logger) -> Int:
-    """
-    Wrapper for a shell command.
+    """Wrapper for a shell command.
 
     Wraps a shell command.
 
-    It captures and re-prints stdout and strderr as the command progresses.
-    TBD: run validation while the program is running and kill it if failure detected.
+    It monitors, captures and re-prints stdout and strderr as the command progresses.
+
+    TBD: Validate the program output on-the-fly and kill it if failure detected.
 
     Parameters
     ----------
@@ -64,26 +64,31 @@ def wrapper_cmd_run(cmd: Union[str, List], logger:logging.Logger) -> Int:
     """
     logger.info("Starting command (%s)", str(cmd))
     p = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
-    )
+        cmd, bufsize=128, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     sel = selectors.DefaultSelector()
     try:
         sel.register(p.stdout, selectors.EVENT_READ)
         sel.register(p.stderr, selectors.EVENT_READ)
-
-        while True:
+        while p.poll() is None:
             for key, _ in sel.select():
                 data = key.fileobj.read1().decode()
                 if not data:
-                    break
+                    continue
                 if key.fileobj is p.stdout:
                     print(data, end="")
                 else:
                     print(data, end="", file=sys.stderr)
+        # Ensure to process everything that may be left in the buffer
+        data = p.stdout.read().decode()
+        if data:
+            print(data, end="")
+        data = p.stderr.read().decode()
+        if data:
+            print(data, end="", file=sys.stderr)
     finally:
         p.stdout.close()
-        p.stdin.close()
+        p.stderr.close()
         sel.close()
     r = p.wait()
     logger.info("Command finished with return code %d", r)
@@ -128,10 +133,11 @@ def main():
     """Entry point if run as a standalone program.
     """
     logging.basicConfig(format='%(asctime)s %(levelname)-7s %(name)s %(message)s')
+
     logger = logging.getLogger()
     parser = argschema.ArgSchemaParser(schema_type=ImageJWrapperSchema)
     args = dict(parser.args)
-    print(args)
+    logger.setLevel(args['log_level'])
     args.update(get_auto_parameters(args))
 
     logger.info("Copying input xml %s -> %s", args['dataset_xml'], args['process_xml'])
@@ -144,19 +150,24 @@ def main():
         logger.info("Creating macro %s", args['macro_ip_det'])
         with open(args['macro_ip_det'], 'w') as f:
             f.write(ImagejMacros.get_macro_ip_det(det_params))
-        wrapper_cmd_run(["ImageJ", "-Dimagej.updater.disableAutocheck=true", "--headless", "--memory", "{memgb}G".format(**args),
+        r = wrapper_cmd_run(["ImageJ", "-Dimagej.updater.disableAutocheck=true", "--headless", "--memory", "{memgb}G".format(**args),
                          "--console", "--run", args['macro_ip_det']], logger)
+        if r != 0:
+            raise RuntimeError("IP detection command failed.")
 
     if args['do_registration']:
         reg_params = dict(args['ip_registration_params'])
         reg_params['parallel'] = args['ncpu']
-        reg_params['procsess_xml'] = args['process_xml']
+        reg_params['process_xml'] = args['process_xml']
         logger.info("Creating macro %s", args['macro_ip_det'])
         with open(args['macro_ip_reg'], 'w') as f:
             f.write(ImagejMacros.get_macro_ip_reg(reg_params))
-        wrapper_cmd_run(
+        r = wrapper_cmd_run(
             ["ImageJ", "-Dimagej.updater.disableAutocheck=true", "--headless", "--memory", "{memgb}G".format(**args),
              "--console", "--run", args['macro_ip_reg']], logger)
+        if r != 0:
+            raise RuntimeError("IP registration command failed.")
+
     logger.info("Done.")
 
 if __name__ == "__main__":
