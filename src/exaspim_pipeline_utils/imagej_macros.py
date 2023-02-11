@@ -37,8 +37,8 @@ run("Register Dataset based on Interest Points",
 
     @staticmethod
     def get_macro_ip_det(P: Dict) -> str:
-        return ImagejMacros.MACRO_IP_DET.format(P)
+        return ImagejMacros.MACRO_IP_DET.format(**P)
 
     @staticmethod
     def get_macro_ip_reg(P: Dict) -> str:
-        return ImagejMacros.MACRO_IP_REG.format(P)
+        return ImagejMacros.MACRO_IP_REG.format(**P)
