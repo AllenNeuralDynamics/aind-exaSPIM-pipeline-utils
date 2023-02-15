@@ -7,6 +7,18 @@ Code repository to be installed in exaSPIM processing capsules.
 
 Wrapper code for ImageJ automation.
 
+## ImageJ wrapper module
+
+The ImageJ wrapper module contains Fiji macro templates and wrapper code to 
+automatically run interest point detection and interest point based registration
+in the Code Ocean capsule. This functionality is set as the main entry point of
+the package if the whole package is invoked on the command line or the 
+`aind_exaspim_pipeline` command is run.
+
+```bash
+python -m aind_exaspim_pipeline_utils
+```
+
 ## Installation
 To use the software, in the root directory, run
 ```bash
