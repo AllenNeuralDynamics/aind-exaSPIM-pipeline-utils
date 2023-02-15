@@ -3,8 +3,8 @@ requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "exaspim_pipeline_utils"
-description = "ExaSPIM pipeline utilities."
+name = "aind_exaspim_pipeline_utils"
+description = "AIND exaSPIM pipeline utilities."
 license = {text = "MIT"}
 requires-python = ">=3.8"
 authors = [
@@ -36,10 +36,10 @@ dev = [
 where = ["src"]
 
 [project.scripts]
-exaspim_pipeline = "exaspim_pipeline_utils:main"
+aind_exaspim_pipeline = "aind_exaspim_pipeline_utils:main"
 
 [tool.setuptools.dynamic]
-version = {attr = "exaspim_pipeline_utils.__version__"}
+version = {attr = "aind_exaspim_pipeline_utils.__version__"}
 
 [tool.black]
 line-length = 110
@@ -63,8 +63,8 @@ exclude = '''
 '''
 
 [tool.coverage.run]
-omit = ["*__init__*"]
-source = ["exaspim_pipeline_utils", "tests"]
+omit = ["*__init__*", "*__main__*"]
+source = ["aind_exaspim_pipeline_utils", "tests"]
 
 [tool.coverage.report]
 exclude_lines = ["if __name__ == .__main__.:"]
