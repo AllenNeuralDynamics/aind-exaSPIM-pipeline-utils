@@ -63,7 +63,7 @@ exclude = '''
 '''
 
 [tool.coverage.run]
-omit = ["*__init__*"]
+omit = ["*__init__*", "*__main__*"]
 source = ["aind_exaspim_pipeline_utils", "tests"]
 
 [tool.coverage.report]
