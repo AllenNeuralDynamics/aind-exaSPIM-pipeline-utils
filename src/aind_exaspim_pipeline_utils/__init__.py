@@ -5,4 +5,4 @@ from .imagej_wrapper import main
 
 __all__ = ["ImagejMacros", "main"]
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
