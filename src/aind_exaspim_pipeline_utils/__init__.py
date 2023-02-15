@@ -1,4 +1,4 @@
-"""exaSPIM pipeline utilites
+"""exaSPIM pipeline utilites top level namespace definition
 """
 from .imagej_macros import ImagejMacros
 from .imagej_wrapper import main
