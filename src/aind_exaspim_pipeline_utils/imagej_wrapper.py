@@ -1,3 +1,4 @@
+"""Wrapper functions and runtime arguments definition."""
 import logging
 import os
 import selectors
@@ -13,7 +14,7 @@ from argschema.fields import Boolean, Int, Nested, String
 from .imagej_macros import ImagejMacros
 
 
-class IPDetectionSchema(argschema.ArgSchema):
+class IPDetectionSchema(argschema.ArgSchema):  # pragma: no cover
     """Adjustable parameters to detect IP."""
 
     downsample = Int(
@@ -23,7 +24,7 @@ class IPDetectionSchema(argschema.ArgSchema):
     # TBD: sigma1, sigma2
 
 
-class IPRegistrationSchema(argschema.ArgSchema):
+class IPRegistrationSchema(argschema.ArgSchema):  # pragma: no cover
     """Adjustable parameters to register with translation only."""
 
     downsample = Int(
@@ -33,7 +34,7 @@ class IPRegistrationSchema(argschema.ArgSchema):
     # TBD:  Fixed tile numbers
 
 
-class ImageJWrapperSchema(argschema.ArgSchema):
+class ImageJWrapperSchema(argschema.ArgSchema):  # pragma: no cover
     """Command line arguments."""
 
     session_id = String(required=True, metadata={"description": "Processing run session identifier"})
@@ -77,7 +78,7 @@ def wrapper_cmd_run(cmd: Union[str, List], logger: logging.Logger) -> Int:
     try:
         sel.register(p.stdout, selectors.EVENT_READ)
         sel.register(p.stderr, selectors.EVENT_READ)
-        while p.poll() is None:
+        while p.poll() is None:  # pragma: no cover
             for key, _ in sel.select():
                 data = key.fileobj.read1().decode()
                 if not data:
@@ -140,7 +141,7 @@ def get_auto_parameters(args: Dict) -> Dict:
     }
 
 
-def main():
+def main():  # pragma: no cover
     """Entry point if run as a standalone program."""
     logging.basicConfig(format="%(asctime)s %(levelname)-7s %(name)s %(message)s")
 
@@ -202,5 +203,5 @@ def main():
     logger.info("Done.")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

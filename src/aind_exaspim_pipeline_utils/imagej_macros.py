@@ -1,3 +1,4 @@
+"""ImageJ Macro creator module."""
 from typing import Dict
 
 
@@ -42,8 +43,22 @@ run("Register Dataset based on Interest Points",
 
     @staticmethod
     def get_macro_ip_det(P: Dict) -> str:
+        """Get IP detection macro.
+
+        Parameters
+        ----------
+        P : `dict`
+          Dictionary for macro template formatting.
+        """
         return ImagejMacros.MACRO_IP_DET.format(**P)
 
     @staticmethod
     def get_macro_ip_reg(P: Dict) -> str:
+        """Get IP registration macro.
+
+        Parameters
+        ----------
+        P : `dict`
+          Dictionary for macro template formatting.
+        """
         return ImagejMacros.MACRO_IP_REG.format(**P)
