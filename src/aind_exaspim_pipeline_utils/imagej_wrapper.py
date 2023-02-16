@@ -8,8 +8,9 @@ import sys
 from typing import Dict, List, Union
 
 import argschema
+import argschema.fields as fld
+import marshmallow as mm
 import psutil
-from argschema.fields import Boolean, Int, Nested, String
 
 from .imagej_macros import ImagejMacros
 
@@ -17,42 +18,132 @@ from .imagej_macros import ImagejMacros
 class IPDetectionSchema(argschema.ArgSchema):  # pragma: no cover
     """Adjustable parameters to detect IP."""
 
-    downsample = Int(
+    downsample = fld.Int(
         required=True,
         metadata={"description": "Downsampling factor. Use the one that is available in the dataset."},
     )
-    # TBD: sigma1, sigma2
+    bead_choice = fld.String(
+        required=True,
+        validate=mm.validate.OneOf(list(ImagejMacros.MAP_BEAD_CHOICE.keys())),
+        metadata={"description": "Beads detection mode"},
+    )
+    sigma = fld.Float(
+        load_default=1.5, metadata={"description": "Difference of Gaussians sigma (beads_mode==manual only)."}
+    )
+    threshold = fld.Float(
+        load_default=0.1,
+        metadata={"description": "Difference of Gaussians detection threshold (beads_mode==manual only)."},
+    )
+    find_minima = fld.Boolean(
+        load_default=False, metadata={"description": "Find minima (beads_mode==manual only)."}
+    )
+    find_maxima = fld.Boolean(
+        load_default=True, metadata={"description": "Find maxima (beads_mode==manual only)."}
+    )
 
 
 class IPRegistrationSchema(argschema.ArgSchema):  # pragma: no cover
     """Adjustable parameters to register with translation only."""
 
-    downsample = Int(
+    transformation_choice = fld.String(
         required=True,
-        metadata={"description": "Downsampling factor. Use the one that is available in the dataset."},
+        validate=mm.validate.OneOf(list(ImagejMacros.MAP_TRANSFORMATION.keys())),
+        metadata={"description": "Translation, rigid or full affine transformation ?"},
     )
-    # TBD:  Fixed tile numbers
+
+    compare_views_choice = fld.String(
+        required=True,
+        validate=mm.validate.OneOf(list(ImagejMacros.MAP_COMPARE_VIEWS.keys())),
+        metadata={"description": "Which views to compare ?"},
+    )
+
+    interest_point_inclusion_choice = fld.String(
+        required=True,
+        validate=mm.validate.OneOf(list(ImagejMacros.MAP_INTEREST_POINT_INCLUSION.keys())),
+        metadata={"description": "Which interest points to use ?"},
+    )
+
+    fix_views_choice = fld.String(
+        required=True,
+        validate=mm.validate.OneOf(list(ImagejMacros.MAP_FIX_VIEWS.keys())),
+        metadata={"description": "Which views to fix ?"},
+    )
+
+    fixed_tile_ids = fld.List(
+        fld.Int,
+        load_default=[
+            0,
+        ],
+        metadata={"description": "Setup ids of fixed tiles (fix_views_choice==select_fixed)."},
+    )
+    map_back_views_choice = fld.String(
+        required=True,
+        validate=mm.validate.OneOf(list(ImagejMacros.MAP_MAP_BACK_VIEWS.keys())),
+        metadata={"description": "How to map back views?"},
+    )
+    map_back_reference_view = fld.Int(
+        load_default=0, metadata={"description": "Selected reference view for map back."}
+    )
+    do_regularize = fld.Boolean(default=False, metadata={"description": "Do regularize transformation?"})
+    regularization_lambda = fld.Float(
+        load_default=0.1, metadata={"description": "Regularization lambda (do_regularize==True only)."}
+    )
+    regularize_with_choice = fld.String(
+        load_default="rigid",
+        validate=mm.validate.OneOf(list(ImagejMacros.MAP_REGULARIZATION.keys())),
+        metadata={"description": "Which regularization to use (do_regularize==True only) ?"},
+    )
 
 
 class ImageJWrapperSchema(argschema.ArgSchema):  # pragma: no cover
     """Command line arguments."""
 
-    session_id = String(required=True, metadata={"description": "Processing run session identifier"})
-    dataset_xml = String(required=True, metadata={"description": "Input xml dataset definition"})
-    do_detection = Boolean(required=True, metadata={"description": "Do interest point detection?"})
-    ip_detection_params = Nested(
+    session_id = fld.String(required=True, metadata={"description": "Processing run session identifier"})
+    memgb = fld.Int(
+        required=True,
+        metadata={
+            "description": "Allowed Java interpreter memory. "
+            "Should be about 0.8 GB x number of parallel threads less than total available."
+        },
+    )
+    parallel = fld.Int(
+        required=True,
+        metadata={"description": "Number of parallel Java worker threads."},
+        validate=mm.validate.Range(min=1, max=128),
+    )
+    dataset_xml = fld.String(required=True, metadata={"description": "Input xml dataset definition"})
+    do_detection = fld.Boolean(required=True, metadata={"description": "Do interest point detection?"})
+    ip_detection_params = fld.Nested(
         IPDetectionSchema, required=False, metadata={"description": "Interest point detection parameters"}
     )
-    do_registration = Boolean(
+    do_registrations = fld.Boolean(
         required=True,
-        metadata={"description": "Do transformation fitting (translation only at the moment) ?"},
+        metadata={"description": "Do first transformation fitting ?"},
     )
-    ip_registration_params = Nested(
-        IPRegistrationSchema, required=False, metadata={"description": "Registration parameters"}
+    ip_registrations_params = fld.Nested(
+        IPRegistrationSchema,
+        required=False,
+        metadata={"description": "Registration parameters (do_registrations==True only)"},
+        many=True,
     )
 
+    # ip_registration1_params = fld.Nested(
+    #     IPRegistrationSchema,
+    #     required=False,
+    #     metadata={"description": "Registration1 parameters (do_registration1==True only)"},
+    # )
+    # do_registration2 = fld.Boolean(
+    #     required=True,
+    #     metadata={"description": "Do second transformation fitting ?"},
+    # )
+    # ip_registration2_params = fld.Nested(
+    #     IPRegistrationSchema,
+    #     required=False,
+    #     metadata={"description": "Registration2 parameters (do_registration1==True only)"},
+    # )
 
-def wrapper_cmd_run(cmd: Union[str, List], logger: logging.Logger) -> Int:
+
+def wrapper_cmd_run(cmd: Union[str, List], logger: logging.Logger) -> int:
     """Wrapper for a shell command.
 
     Wraps a shell command.
@@ -65,6 +156,9 @@ def wrapper_cmd_run(cmd: Union[str, List], logger: logging.Logger) -> Int:
     ----------
     cmd: `str`
         Command that we want to execute.
+
+    logger: `logging.Logger`
+        Logger instance to use.
 
     Returns
     -------
@@ -108,6 +202,12 @@ def get_auto_parameters(args: Dict) -> Dict:
 
     Determine number of cpus, imagej memory limit and imagej macro file names.
 
+    Note
+    ----
+
+    Number of cpus and memory are for the whole VM at the moment, not what is available
+    for the capsule.
+
     Parameters
     ----------
     args: `Dict`
@@ -131,19 +231,19 @@ def get_auto_parameters(args: Dict) -> Dict:
 
     process_xml = "/results/bigstitcher_{session_id}.xml".format(**args)
     macro_ip_det = "/results/macro_ip_det_{session_id}.ijm".format(**args)
-    macro_ip_reg = "/results/macro_ip_reg_{session_id}.ijm".format(**args)
     return {
         "process_xml": process_xml,
-        "ncpu": ncpu,
-        "memgb": mem_GB,
+        # Do not use, this is the whole VM at the moment, not what is available for the capsule
+        "auto_ncpu": ncpu,
+        # Do not use, this is the whole VM at the moment, not what is available for the capsule
+        "auto_memgb": mem_GB,
         "macro_ip_det": macro_ip_det,
-        "macro_ip_reg": macro_ip_reg,
     }
 
 
 def main():  # pragma: no cover
     """Entry point if run as a standalone program."""
-    logging.basicConfig(format="%(asctime)s %(levelname)-7s %(name)s %(message)s")
+    logging.basicConfig(format="%(asctime)s %(levelname)-7s %(message)s")
 
     logger = logging.getLogger()
     parser = argschema.ArgSchemaParser(schema_type=ImageJWrapperSchema)
@@ -156,7 +256,7 @@ def main():  # pragma: no cover
 
     if args["do_detection"]:
         det_params = dict(args["ip_detection_params"])
-        det_params["parallel"] = args["ncpu"]
+        det_params["parallel"] = args["parallel"]
         det_params["process_xml"] = args["process_xml"]
         logger.info("Creating macro %s", args["macro_ip_det"])
         with open(args["macro_ip_det"], "w") as f:
@@ -177,28 +277,34 @@ def main():  # pragma: no cover
         if r != 0:
             raise RuntimeError("IP detection command failed.")
 
-    if args["do_registration"]:
-        reg_params = dict(args["ip_registration_params"])
-        reg_params["parallel"] = args["ncpu"]
-        reg_params["process_xml"] = args["process_xml"]
-        logger.info("Creating macro %s", args["macro_ip_det"])
-        with open(args["macro_ip_reg"], "w") as f:
-            f.write(ImagejMacros.get_macro_ip_reg(reg_params))
-        r = wrapper_cmd_run(
-            [
-                "ImageJ",
-                "-Dimagej.updater.disableAutocheck=true",
-                "--headless",
-                "--memory",
-                "{memgb}G".format(**args),
-                "--console",
-                "--run",
-                args["macro_ip_reg"],
-            ],
-            logger,
-        )
-        if r != 0:
-            raise RuntimeError("IP registration command failed.")
+    if args["do_registrations"]:
+        if "ip_registrations_params" not in args:
+            raise ValueError("Registration steps are requested but no configuration provided.")
+        reg_index = 0
+        for reg_params in args["ip_registrations_params"]:
+            macro_reg = f"macro_ip_reg{reg_index:d}"
+            reg_params = dict(reg_params)
+            reg_params["process_xml"] = args["process_xml"]
+            reg_params["parallel"] = args["parallel"]
+            logger.info("Creating macro %s", macro_reg)
+            with open(macro_reg, "w") as f:
+                f.write(ImagejMacros.get_macro_ip_reg(reg_params))
+            r = wrapper_cmd_run(
+                [
+                    "ImageJ",
+                    "-Dimagej.updater.disableAutocheck=true",
+                    "--headless",
+                    "--memory",
+                    "{memgb}G".format(**args),
+                    "--console",
+                    "--run",
+                    macro_reg,
+                ],
+                logger,
+            )
+            if r != 0:
+                raise RuntimeError("IP registration1 command failed.")
+            reg_index += 1
 
     logger.info("Done.")
 
