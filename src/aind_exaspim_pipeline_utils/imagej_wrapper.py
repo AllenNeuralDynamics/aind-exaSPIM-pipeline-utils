@@ -276,13 +276,21 @@ def main():  # pragma: no cover
         )
         if r != 0:
             raise RuntimeError("IP detection command failed.")
+    else:
+        if args["do_registrations"]:
+            # We assume that interest point detections are already present in the input dataset
+            # in the folder of the xml dataset file
+            logger.info("Assume already detected interestpoints.")
+            ip_src = os.path.join(os.path.dirname(args["dataset_xml"]), "interestpoints")
+            logger.info("Copying %s -> /results/", ip_src)
+            shutil.copytree(ip_src, "/results/interestpoints", dirs_exist_ok=True)
 
     if args["do_registrations"]:
         if "ip_registrations_params" not in args:
             raise ValueError("Registration steps are requested but no configuration provided.")
         reg_index = 0
         for reg_params in args["ip_registrations_params"]:
-            macro_reg = f"macro_ip_reg{reg_index:d}"
+            macro_reg = f"/results/macro_ip_reg{reg_index:d}.ijm"
             reg_params = dict(reg_params)
             reg_params["process_xml"] = args["process_xml"]
             reg_params["parallel"] = args["parallel"]
