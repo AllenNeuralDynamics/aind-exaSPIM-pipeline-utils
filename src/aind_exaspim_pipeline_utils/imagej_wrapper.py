@@ -1,4 +1,5 @@
 """Wrapper functions and runtime arguments definition."""
+import json
 import logging
 import os
 import selectors
@@ -127,21 +128,6 @@ class ImageJWrapperSchema(argschema.ArgSchema):  # pragma: no cover
         many=True,
     )
 
-    # ip_registration1_params = fld.Nested(
-    #     IPRegistrationSchema,
-    #     required=False,
-    #     metadata={"description": "Registration1 parameters (do_registration1==True only)"},
-    # )
-    # do_registration2 = fld.Boolean(
-    #     required=True,
-    #     metadata={"description": "Do second transformation fitting ?"},
-    # )
-    # ip_registration2_params = fld.Nested(
-    #     IPRegistrationSchema,
-    #     required=False,
-    #     metadata={"description": "Registration2 parameters (do_registration1==True only)"},
-    # )
-
 
 def wrapper_cmd_run(cmd: Union[str, List], logger: logging.Logger) -> int:
     """Wrapper for a shell command.
@@ -247,9 +233,15 @@ def main():  # pragma: no cover
 
     logger = logging.getLogger()
     parser = argschema.ArgSchemaParser(schema_type=ImageJWrapperSchema)
+
     args = dict(parser.args)
     logger.setLevel(args["log_level"])
     args.update(get_auto_parameters(args))
+    logger.info("Invocation: %s", sys.argv)
+
+    logger.info("Writing out config.json")
+    with open("/results/config.json", "w") as f:
+        json.dump(args, f, indent=2)
 
     logger.info("Copying input xml %s -> %s", args["dataset_xml"], args["process_xml"])
     shutil.copy(args["dataset_xml"], args["process_xml"])
