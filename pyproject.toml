@@ -18,7 +18,18 @@ dynamic = ["version"]
 
 dependencies = [
     'argschema',
-    'psutil'
+    'pydantic',
+    'psutil',
+    # n5 to zarr conversion
+    'dask',
+    'distributed',
+    'zarr',
+    'numcodecs',
+    'aind-data-transfer[full]',
+    'aind-data-schema',
+    # missing dependencies from aind-data-transfer[full]
+    'hdf5plugin',
+    'kerchunk'
 ]
 
 [project.optional-dependencies]
@@ -37,6 +48,7 @@ where = ["src"]
 
 [project.scripts]
 aind_exaspim_pipeline = "aind_exaspim_pipeline_utils:main"
+n5tozarr_da_converter = "aind_exaspim_pipeline_utils:n5tozarr_da_converter"
 
 [tool.setuptools.dynamic]
 version = {attr = "aind_exaspim_pipeline_utils.__version__"}
