@@ -5,9 +5,12 @@
 
 Code repository to be installed in exaSPIM processing capsules.
 
-Wrapper code for ImageJ automation.
+## Features
 
-## ImageJ wrapper module
+ - Wrapper code for ImageJ automation.
+ - n5 to zarr converter to be run in a Code Ocean capsule.
+
+### ImageJ wrapper module
 
 The ImageJ wrapper module contains Fiji macro templates and wrapper code to 
 automatically run interest point detection and interest point based registration
@@ -18,6 +21,28 @@ the package if the whole package is invoked on the command line or the
 ```bash
 python -m aind_exaspim_pipeline_utils
 ```
+
+### N5 to Zarr converter
+
+The N5 to zarr converter sets up a local dask cluster with multiple python processes 
+as workers to read in an N5 dataset and write it out in a multiscale Zarr dataset.
+Both datasets may be local or directly on S3. AWS credentials must be available in the
+environment (Code Ocean credential assignment to environment variables).
+
+This implementation is based on dask.array (da).
+
+This command takes a manifest json file as the only command line argument or looks it 
+up at the hard-wired `data/manifest/exaspim_manifest.json` location if not specified.
+
+To set up a code ocean capsule, use the following `run.sh` script:
+
+```bash
+#!/usr/bin/env bash
+set -ex
+cd ~/capsule
+n5tozarr_da_converter "$@"
+```
+
 
 ## Installation
 To use the software, in the root directory, run
