@@ -3,24 +3,23 @@ import logging
 import multiprocessing
 from typing import Iterable, Optional, Tuple
 import time
-import dask
-import dask.array
 import zarr
 import re
-from dask.distributed import Client
 from numcodecs import Blosc
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(process)d %(message)s", datefmt="%Y-%m-%d %H:%M"
 )
+LOGGER = logging.getLogger()
+LOGGER.setLevel(logging.INFO)
 
+import dask  # noqa: E402
+import dask.array  # noqa: E402
+from dask.distributed import Client  # noqa: E402
 from aind_data_transfer.transformations import ome_zarr  # noqa: E402
 from aind_data_transfer.util import chunk_utils, io_utils  # noqa: E402
 from aind_exaspim_pipeline_utils import exaspim_manifest  # noqa: E402
 from aind_exaspim_pipeline_utils.exaspim_manifest import N5toZarrParameters  # noqa: E402
-
-LOGGER = logging.getLogger()
-LOGGER.setLevel(logging.INFO)
 
 
 def get_uri(bucket_name: Optional[str], *names: Iterable[str]) -> str:
@@ -130,7 +129,7 @@ def n5tozarr_da_converter():  # pragma: no cover
 
     config: N5toZarrParameters = exaspim_manifest.get_capsule_manifest().processing_pipeline.n5_to_zarr
     n_cpu = multiprocessing.cpu_count()
-    LOGGER.info("Starting local Dask cluster with %d processes and 4 threads per process.", n_cpu)
+    LOGGER.info("Starting local Dask cluster with %d processes and 2 threads per process.", n_cpu)
     dask.config.set(
         {
             "distributed.worker.memory.spill": False,  # Do not spill to /tmp space in a capsule
