@@ -7,4 +7,4 @@ from .exaspim_manifest import print_example_manifest
 
 __all__ = ["ImagejMacros", "main", "n5tozarr_da_converter", "print_example_manifest"]
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
