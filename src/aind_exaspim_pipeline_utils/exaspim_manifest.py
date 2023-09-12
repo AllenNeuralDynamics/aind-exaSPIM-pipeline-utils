@@ -43,24 +43,17 @@ class N5toZarrParameters(AindModel):  # pragma: no cover
         ..., title="Z,Y,X voxel size in micrometers for output metadata"
     )
 
-    input_bucket: Optional[str] = Field(
-        None, title="The input bucket. If specified, triggers reading from S3 directly."
-    )
-
-    input_name: str = Field(
+    input_uri: str = Field(
         ...,
-        title="Input N5 dataset path. Interpreted as relative to the bucket if given, otherwise,"
-        "as a path on the local filesystem.",
+        title="Input N5 dataset path. Must be a local filesystem path or "
+        "start with s3:// to trigger S3 direct access.",
     )
 
-    output_bucket: Optional[str] = Field(
-        None, title="The output S3 bucket. If sepcified, triggers writing to S3 directly."
-    )
-
-    output_name: str = Field(
+    output_uri: str = Field(
         ...,
-        title="Input N5 dataset path. Interpreted as relative to the bucket if given, otherwise,"
-        "as a path on the local filesystem.",
+        title="Output Zarr dataset path. Must be a local filesystem path or "
+        "start with s3:// to trigger S3 direct access. "
+        "Must be different from the input_uri. Will be overwritten if exists.",
     )
 
 
@@ -148,14 +141,12 @@ def create_example_manifest(printit=False) -> ExaspimManifest:  # pragma: no cov
         institution=Institution.AIND,
         processing_pipeline=ExaspimProcessingPipeline(
             n5_to_zarr=N5toZarrParameters(
-                voxel_size_zyx=(1.0, 0.75, 0.75),
-                input_bucket="aind-scratch-data",
-                input_name="/gabor.kovacs/2023-07-25_1653_BSS_fusion_653431/ch561/",
-                output_bucket="aind-scratch-data",
-                output_name="/gabor.kovacs/n5_to_zarr_CO_2023-08-17_1351/",
+                voxel_size_zyx=(1.0, 0.748, 0.748),
+                input_uri="s3://aind-scratch-data/gabor.kovacs/2023-07-25_1653_BSS_fusion_653431/ch561/",
+                output_uri="s3://aind-scratch-data/gabor.kovacs/n5_to_zarr_CO_2023-08-17_1351/",
             ),
             zarr_multiscale=ZarrMultiscaleParameters(
-                voxel_size_zyx=(1.0, 0.75, 0.75),
+                voxel_size_zyx=(1.0, 0.748, 0.748),
                 input_uri="s3://aind-scratch-data/gabor.kovacs/2023-07-25_1653_BSS_fusion_653431/ch561/",
             ),
         ),
