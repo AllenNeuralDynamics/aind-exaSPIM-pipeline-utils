@@ -26,10 +26,11 @@ dependencies = [
     'zarr',
     'numcodecs',
     'aind-data-transfer[full]',
-    'aind-data-schema',
+    'aind-data-schema'
     # missing dependencies from aind-data-transfer[full]
-    'hdf5plugin',
-    'kerchunk'
+    # These supposed to be installed by post_install.sh
+#    'hdf5plugin',
+#    'kerchunk'
 ]
 
 [project.optional-dependencies]
