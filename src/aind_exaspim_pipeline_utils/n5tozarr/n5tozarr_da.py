@@ -56,7 +56,8 @@ def fmt_uri(uri: str) -> str:
         s = "/".join(("", *uri[3:].split("/"), ""))
         return "s3:/" + re.sub(r"/{2,}", "/", s)
     else:
-        return re.sub(r"/{2,}", "/", uri)
+        s = "/".join((*uri.split("/"), ""))
+        return re.sub(r"/{2,}", "/", s)
 
 
 def downsample_and_store(
@@ -68,7 +69,7 @@ def downsample_and_store(
     compressor: Codec = None,
     reducer: WindowedReducer = xarray_multiscale.reducers.windowed_mean,
     fromLevel: int = 1,
-) -> list:
+) -> list:  # pragma: no cover
     """
     Progressively downsample the input array and store the results as separate arrays in a Zarr group.
 
@@ -85,8 +86,8 @@ def downsample_and_store(
     block_shape : Tuple
         The shape of blocks to use for partitioning the array.
     compressor : numcodecs.abc.Codec, optional
-        The compression codec to use for the output Zarr array. Default is Blosc with "zstd" method and compression
-        level 1.
+        The compression codec to use for the output Zarr array. Default is Blosc with "zstd"
+        method and compression level 1.
     fromLevel : int
         The first downscaled level to write. `arr` must represent fromLevel - 1. Defaults to 1.
     """
@@ -195,7 +196,9 @@ def run_zarr_multiscale(
     LOGGER.debug("Initialize source Zarr store")
     zg = zarr.open_group(input_uri, mode="r")
     LOGGER.info("Get dask array from Zarr source for full resolution")
-    arrZero = dask.array.from_array(zg["0"], chunks=zg["0"].chunks)  # For metadata writing we need the full resolution shape
+    arrZero = dask.array.from_array(
+        zg["0"], chunks=zg["0"].chunks
+    )  # For metadata writing we need the full resolution shape
     arrZero = chunk_utils.ensure_array_5d(arrZero)
     arrZero = arrZero.rechunk((1, 1, 256, 256, 256))
 
@@ -243,10 +246,10 @@ def run_zarr_multiscale(
     downsample_and_store(arr, group, n_levels, scale_factors, block_shape, compressor, fromLevel=fromLevel)
     write_time = time.time() - t0
 
-    LOGGER.info(f"Finished writing tile. Took %d s.", write_time)
+    LOGGER.info("Finished writing tile. Took %d s.", write_time)
 
 
-def get_worker_memory(n_worker):
+def get_worker_memory(n_worker):  # pragma: no cover
     """Determine the per-worker memory"""
     total = psutil.virtual_memory().total
     GByte = 1024 * 1024 * 1024
@@ -259,7 +262,7 @@ def get_worker_memory(n_worker):
     return perworker
 
 
-def set_worker_logging(level: int = logging.DEBUG):
+def set_worker_logging(level: int = logging.DEBUG):  # pragma: no cover
     """Configure logger levels on a worker."""
     logging.getLogger().setLevel(level)
     logging.getLogger("distributed").setLevel(level)
@@ -274,7 +277,7 @@ def set_worker_logging(level: int = logging.DEBUG):
     logging.getLogger("urllib3").setLevel(infolevel)
 
 
-def config_client_logging(level: int = logging.DEBUG):
+def config_client_logging(level: int = logging.DEBUG):  # pragma: no cover
     """Configure logging on a worker or the client."""
     # config = {
     #     "version": 1,
@@ -298,7 +301,7 @@ def config_client_logging(level: int = logging.DEBUG):
     R = logging.getLogger()
     for hdlr in R.handlers[:]:  # remove all old handlers
         R.removeHandler(hdlr)
-        
+
     h1 = logging.StreamHandler(sys.stderr)
     h1.setFormatter(logging.Formatter("%(asctime)s [%(process)d] %(levelname)s %(name)s %(message)s"))
     logging.getLogger().setLevel(level)
@@ -346,12 +349,15 @@ def n5tozarr_da_converter():  # pragma: no cover
         {
             "distributed.worker.memory.spill": False,  # Do not spill to /tmp space in a capsule
             "distributed.worker.memory.target": False,  # Do not spill to /tmp space in a capsule
-            # After the recent-to-old waiting, we hope that a paused state will cross this and we restart
-            # the worker
+            # If a worker gets paused, after the recent-to-old wait time, we hope
+            # that it will cross the termination limit and eventually gets restarted
             "distributed.worker.memory.terminate": 0.95,
-            "distributed.worker.memory.pause": 0.94,  # Just pause and wait for task finish then GC and trimming
-            "distributed.worker.memory.rebalance.recipient-max": 0.05,  # Do not receive data from other workers
-            "distributed.worker.memory.recent-to-old-time": '300s' # Should be longer than typical task runtime
+            # Pause and wait for task finish then GC and trimming:
+            "distributed.worker.memory.pause": 0.94,
+            # Do not receive data from other workers:
+            "distributed.worker.memory.rebalance.recipient-max": 0.05,
+            # Should be longer than typical task runtime:
+            "distributed.worker.memory.recent-to-old-time": "300s",
         }
     )
     client = Client(
@@ -378,7 +384,8 @@ def n5tozarr_da_converter():  # pragma: no cover
     LOGGER.info("Done.")
 
 
-def get_zarr_multiscale_metadata(config: dict):
+def get_zarr_multiscale_metadata(config: dict):  # pragma: no cover
+    """Initiate metadata instance with current timestamp and configuration."""
     t = datetime.datetime.now()
     dp = DataProcess(
         name=ProcessName.FILE_CONVERSION,
@@ -396,7 +403,8 @@ def get_zarr_multiscale_metadata(config: dict):
     return dp
 
 
-def get_n5tozarr_metadata(config: dict):
+def get_n5tozarr_metadata(config: dict):  # pragma: no cover
+    """Initiate metadata instance with current timestamp and configuration."""
     t = datetime.datetime.now()
     dp = DataProcess(
         name=ProcessName.FILE_CONVERSION,
@@ -460,10 +468,15 @@ def zarr_multiscale_converter():  # pragma: no cover
         {
             "distributed.worker.memory.spill": False,  # Do not spill to /tmp space in a capsule
             "distributed.worker.memory.target": False,  # Do not spill to /tmp space in a capsule
-            "distributed.worker.memory.terminate": 0.95,  # Just pause and wait for GC and memory trimming
-            "distributed.worker.memory.pause": 0.93,  # Pause at 93% of worker memory usage (no new jobs)
-            "distributed.worker.memory.rebalance.recipient-max": 0.1,  # Do not receive data from other workers
-            "distributed.worker.memory.recent-to-old-time": '300s' # Should be longer than typical task runtime
+            # If a worker gets paused, after the recent-to-old wait time, we hope
+            # that it will cross the termination limit and eventually gets restarted
+            "distributed.worker.memory.terminate": 0.95,
+            # Pause and wait for task finish then GC and trimming:
+            "distributed.worker.memory.pause": 0.94,
+            # Do not receive data from other workers:
+            "distributed.worker.memory.rebalance.recipient-max": 0.05,
+            # Should be longer than typical task runtime:
+            "distributed.worker.memory.recent-to-old-time": "300s",
         }
     )
     client = Client(
