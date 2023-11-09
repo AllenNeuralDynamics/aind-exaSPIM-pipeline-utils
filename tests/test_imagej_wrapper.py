@@ -72,6 +72,9 @@ class TestMacros(unittest.TestCase):
             "ip_detection_params": {
                 "downsample": 8,
                 "bead_choice": "sample_small",  # Usual choice for the beads
+                "set_minimum_maximum": True,
+                "maximum_number_of_detections": 100000,
+                "ip_limitation_choice": "around_median",
             },
             "do_registrations": True,
             "ip_registrations_params": [
@@ -109,6 +112,7 @@ class TestMacros(unittest.TestCase):
         det_params["bead_choice"] = "manual"
         m = ImagejMacros.get_macro_ip_det(det_params)
         self.assertRegex(m, "sigma=")
+        print(m)
 
     def testMacroIPReg(self):
         """Test IP Registration macro"""
