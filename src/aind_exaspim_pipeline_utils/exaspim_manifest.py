@@ -121,7 +121,7 @@ class ExaspimManifest(AindModel):  # pragma: no cover
     )
 
 
-def create_example_manifest(printit=False) -> ExaspimManifest:  # pragma: no cover
+def create_example_manifest(printit=True) -> ExaspimManifest:  # pragma: no cover
     """Create example manifest file
 
     Parameters
@@ -155,6 +155,7 @@ def create_example_manifest(printit=False) -> ExaspimManifest:  # pragma: no cov
 
     if printit:
         print(processing_manifest_example.json(indent=3))
+        return  # If printed, we assume call from the cli
     return processing_manifest_example
 
 

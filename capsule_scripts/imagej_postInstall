@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -e
+
+ImageJ --headless --update add-update-site BigStitcher https://sites.imagej.net/BigStitcher/
+ImageJ --headless --update add-update-site AllenNeuralDynamics https://sites.imagej.net/AllenNeuralDynamics
+ImageJ --headless --update update jars/bigdataviewer-omezarr-0.1.1.jar
+ImageJ --headless --update update plugins/Big_Stitcher-1.2.7.jar
+ImageJ --headless --update update plugins/multiview_reconstruction-3.2.4.jar
+ImageJ --headless --update update

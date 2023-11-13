@@ -20,18 +20,7 @@ dependencies = [
     'argschema',
     'pydantic',
     'psutil',
-    # n5 to zarr conversion
-    'dask',
-    'distributed',
-    'zarr',
-    'numcodecs',
-    'aind-data-transfer[full]',
     'aind-data-schema',
-#    'xarray-multiscale'
-    # missing dependencies from aind-data-transfer[full]
-    # These supposed to be installed by post_install.sh
-#    'hdf5plugin',
-#    'kerchunk'
 ]
 
 [project.optional-dependencies]
@@ -45,13 +34,28 @@ dev = [
     'furo'
 ]
 
+n5tozarr = [
+    # n5 to zarr conversion
+    'dask',
+    'distributed',
+    'zarr',
+    'numcodecs',
+    'aind-data-transfer[full]',
+#    'xarray-multiscale'
+    # missing dependencies from aind-data-transfer[full]
+    # These supposed to be installed by post_install.sh
+#    'hdf5plugin',
+#    'kerchunk'
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [project.scripts]
-aind_exaspim_pipeline = "aind_exaspim_pipeline_utils:main"
-n5tozarr_da_converter = "aind_exaspim_pipeline_utils:n5tozarr_da_converter"
-zarr_multiscale_converter = "aind_exaspim_pipeline_utils:zarr_multiscale_converter"
+imagej_wrapper = "aind_exaspim_pipeline_utils.imagej_wrapper:main"
+n5tozarr_da_converter = "aind_exaspim_pipeline_utils.n5tozarr.n5tozarr_da:n5tozarr_da_converter"
+zarr_multiscale_converter = "aind_exaspim_pipeline_utils.n5tozarr.n5tozarr_da:zarr_multiscale_converter"
+create_example_manifest = "aind_exaspim_pipeline_utils.exaspim_manifest:create_example_manifest"
 
 [tool.setuptools.dynamic]
 version = {attr = "aind_exaspim_pipeline_utils.__version__"}
