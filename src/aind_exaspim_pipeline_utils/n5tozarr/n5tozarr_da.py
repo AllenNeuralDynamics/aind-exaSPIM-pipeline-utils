@@ -437,10 +437,10 @@ def set_metadata_done(meta: DataProcess) -> None:  # pragma: no cover
 
 def zarr_multiscale_converter():  # pragma: no cover
     """Main entry point for zarr downscaling task."""
-    config_client_logging()
+    config_client_logging(logging.INFO)
     global LOGGER
     LOGGER = logging.getLogger("zarr_mscale")
-    LOGGER.setLevel(logging.DEBUG)
+    LOGGER.setLevel(logging.INFO)
 
     capsule_manifest = exaspim_manifest.get_capsule_manifest()
     config = capsule_manifest.processing_pipeline.zarr_multiscale.dict()
@@ -484,9 +484,9 @@ def zarr_multiscale_converter():  # pragma: no cover
         threads_per_worker=2,
         memory_limit=get_worker_memory(n_cpu),
         processes=True,
-        silence_logs=logging.DEBUG,
+        silence_logs=logging.INFO,
     )
-    client.run(set_worker_logging, logging.DEBUG)
+    client.run(set_worker_logging, logging.INFO)
     client.forward_logging()
     # Run jobs
     run_zarr_multiscale(config["input_uri"], config["output_uri"], config["voxel_size_zyx"])
