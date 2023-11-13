@@ -35,7 +35,8 @@ run("Detect Interest Points for Registration",
     MAP_IP_LIMITATION_CHOICE = {
         "brightest": "Brightest",
         "around_median": "Around median (of those above threshold)",
-        "weakest": "Weakest (above threshold)"}
+        "weakest": "Weakest (above threshold)",
+    }
 
     MACRO_IP_REG = """
 run("Memory & Threads...", "parallel={parallel:d}");
@@ -91,7 +92,7 @@ run("Register Dataset based on Interest Points",
     @staticmethod
     def get_macro_ip_det(P: Dict[str, Any]) -> str:
         """Get a parameter formatted IP detection macro.
-    
+
         Parameters
         ----------
         P : `dict`
@@ -106,20 +107,17 @@ run("Register Dataset based on Interest Points",
                 "manual_bead_choice"
             ] = " sigma={sigma:.5f} threshold={threshold:.5f}{find_minima}{find_maxima}".format(**fparams)
         fparams["bead_choice"] = ImagejMacros.MAP_BEAD_CHOICE[P["bead_choice"]]
-    
+
         fparams["manual_minimum_maximum"] = ""
         if fparams["set_minimum_maximum"]:
-            fparams[
-                "manual_minimum_maximum"
-            ] = " set_minimal_and_maximal_intensity minimal_intensity={minimal_intensity:.1f} maximal_intensity={maximal_intensity:.1f}".format(
-                **fparams
-            )
-    
+            fparams["manual_minimum_maximum"] = (
+                " set_minimal_and_maximal_intensity minimal_intensity={minimal_intensity:.1f}"
+                " maximal_intensity={maximal_intensity:.1f}"
+            ).format(**fparams)
+
         fparams["limit_amount_of_detections"] = ""
         if P["maximum_number_of_detections"] > 0:
-            fparams[
-                "limit_amount_of_detections"
-            ] = " limit_amount_of_detections maximum_number={:d}".format(
+            fparams["limit_amount_of_detections"] = " limit_amount_of_detections maximum_number={:d}".format(
                 P["maximum_number_of_detections"]
             ) + " type_of_detections_to_use=[{}]".format(
                 ImagejMacros.MAP_IP_LIMITATION_CHOICE[P["ip_limitation_choice"]]

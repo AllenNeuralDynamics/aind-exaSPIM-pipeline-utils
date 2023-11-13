@@ -55,7 +55,8 @@ class IPDetectionSchema(argschema.ArgSchema):  # pragma: no cover
     maximum_number_of_detections = fld.Int(
         load_default=0,
         metadata={
-            "description": "If not equal to 0, the number of maximum IPs to detect. Set ip_limitation_choice, too."
+            "description": "If not equal to 0, the number of maximum IPs to detect."
+            " Set ip_limitation_choice, too."
         },
     )
     ip_limitation_choice = fld.String(
