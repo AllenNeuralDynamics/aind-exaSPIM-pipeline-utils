@@ -26,7 +26,8 @@ dependencies = [
     'zarr',
     'numcodecs',
     'aind-data-transfer[full]',
-    'aind-data-schema'
+    'aind-data-schema',
+#    'xarray-multiscale'
     # missing dependencies from aind-data-transfer[full]
     # These supposed to be installed by post_install.sh
 #    'hdf5plugin',

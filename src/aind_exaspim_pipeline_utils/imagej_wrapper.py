@@ -29,7 +29,7 @@ class IPDetectionSchema(argschema.ArgSchema):  # pragma: no cover
         metadata={"description": "Beads detection mode"},
     )
     sigma = fld.Float(
-        load_default=1.5, metadata={"description": "Difference of Gaussians sigma (beads_mode==manual only)."}
+        load_default=1.8, metadata={"description": "Difference of Gaussians sigma (beads_mode==manual only)."}
     )
     threshold = fld.Float(
         load_default=0.1,
@@ -40,6 +40,31 @@ class IPDetectionSchema(argschema.ArgSchema):  # pragma: no cover
     )
     find_maxima = fld.Boolean(
         load_default=True, metadata={"description": "Find maxima (beads_mode==manual only)."}
+    )
+    set_minimum_maximum = fld.Boolean(
+        load_default=False,
+        metadata={"description": "Define the minimum and maximum intensity range manually"},
+    )
+    minimal_intensity = fld.Float(
+        load_default=0, metadata={"description": "Minimal intensity value (if set_minimum_maximum==True)."}
+    )
+    maximal_intensity = fld.Float(
+        load_default=65535,
+        metadata={"description": "Minimal intensity value (if set_minimum_maximum==True)."},
+    )
+    maximum_number_of_detections = fld.Int(
+        load_default=0,
+        metadata={
+            "description": "If not equal to 0, the number of maximum IPs to detect."
+            " Set ip_limitation_choice, too."
+        },
+    )
+    ip_limitation_choice = fld.String(
+        required=True,
+        validate=mm.validate.OneOf(list(ImagejMacros.MAP_IP_LIMITATION_CHOICE.keys())),
+        metadata={
+            "description": "How to pick limit_amount_of_detections is set >0 and the maximum number is hit."
+        },
     )
 
 
