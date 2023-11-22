@@ -298,9 +298,9 @@ def main():  # pragma: no cover
             # We assume that interest point detections are already present in the input dataset
             # in the folder of the xml dataset file
             logger.info("Assume already detected interestpoints.")
-            ip_src = os.path.join(os.path.dirname(args["dataset_xml"]), "interestpoints")
+            ip_src = os.path.join(os.path.dirname(args["dataset_xml"]), "interestpoints.n5")
             logger.info("Copying %s -> /results/", ip_src)
-            shutil.copytree(ip_src, "/results/interestpoints", dirs_exist_ok=True)
+            shutil.copytree(ip_src, "/results/interestpoints.n5", dirs_exist_ok=True)
 
     if args["do_registrations"]:
         if "ip_registrations_params" not in args:
