@@ -21,10 +21,12 @@ dependencies = [
     'pydantic',
     'psutil',
     'aind-data-schema',
+    'aind-codeocean-api'
 ]
 
 [project.optional-dependencies]
 dev = [
+    'aind-exaspim-pipeline-utils[n5tozarr]',
     'black',
     'coverage',
     'flake8',
@@ -41,7 +43,6 @@ n5tozarr = [
     'zarr',
     'numcodecs',
     'aind-data-transfer[full]',
-#    'xarray-multiscale'
     # missing dependencies from aind-data-transfer[full]
     # These supposed to be installed by post_install.sh
 #    'hdf5plugin',
@@ -53,10 +54,12 @@ where = ["src"]
 
 [project.scripts]
 imagej_wrapper = "aind_exaspim_pipeline_utils.imagej_wrapper:main"
+imagej_wrapper_manifest = "aind_exaspim_pipeline_utils.imagej_wrapper:imagej_wrapper_main"
 n5tozarr_da_converter = "aind_exaspim_pipeline_utils.n5tozarr.n5tozarr_da:n5tozarr_da_converter"
 zarr_multiscale_converter = "aind_exaspim_pipeline_utils.n5tozarr.n5tozarr_da:zarr_multiscale_converter"
 create_example_manifest = "aind_exaspim_pipeline_utils.exaspim_manifest:create_example_manifest"
 bigstitcher_log_edge_analysis = "aind_exaspim_pipeline_utils.qc.bigstitcher_log_edge_analysis:main"
+run_trigger_capsule = "aind_exaspim_pipeline_utils.trigger.capsule:capsule_main"
 
 [tool.setuptools.dynamic]
 version = {attr = "aind_exaspim_pipeline_utils.__version__"}

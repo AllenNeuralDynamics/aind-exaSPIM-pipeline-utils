@@ -19,7 +19,10 @@ the package if the whole package is invoked on the command line or the
 `aind_exaspim_pipeline` command is run.
 
 ```bash
-python -m aind_exaspim_pipeline_utils
+#!/usr/bin/env bash
+set -ex
+cd ~/capsule
+imagej_wrapper "$@"
 ```
 
 ### N5 to Zarr converter
@@ -53,6 +56,11 @@ pip install -e .
 To develop the code, run
 ```bash
 pip install -e .[dev]
+```
+
+For n5tozarr and zarr multiscale conversion, install as
+```bash
+pip install -e .[n5tozarr]
 ```
 
 ## Contributing

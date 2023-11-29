@@ -1,4 +1,5 @@
 """Wrapper functions and runtime arguments definition."""
+import datetime
 import json
 import logging
 import os
@@ -12,8 +13,12 @@ import argschema
 import argschema.fields as fld
 import marshmallow as mm
 import psutil
+from aind_data_schema import DataProcess
+from aind_data_schema.processing import ProcessName
 
+from . import __version__
 from .imagej_macros import ImagejMacros
+from .exaspim_manifest import ExaspimProcessingPipeline, get_capsule_manifest, write_process_metadata
 
 
 class IPDetectionSchema(argschema.ArgSchema):  # pragma: no cover
@@ -56,7 +61,7 @@ class IPDetectionSchema(argschema.ArgSchema):  # pragma: no cover
         load_default=0,
         metadata={
             "description": "If not equal to 0, the number of maximum IPs to detect."
-            " Set ip_limitation_choice, too."
+                           " Set ip_limitation_choice, too."
         },
     )
     ip_limitation_choice = fld.String(
@@ -129,7 +134,7 @@ class ImageJWrapperSchema(argschema.ArgSchema):  # pragma: no cover
         required=True,
         metadata={
             "description": "Allowed Java interpreter memory. "
-            "Should be about 0.8 GB x number of parallel threads less than total available."
+                           "Should be about 0.8 GB x number of parallel threads less than total available."
         },
     )
     parallel = fld.Int(
@@ -240,8 +245,8 @@ def get_auto_parameters(args: Dict) -> Dict:
     if mem_GB < 10:
         raise ValueError("Too little memory available")
 
-    process_xml = "/results/bigstitcher_{session_id}.xml".format(**args)
-    macro_ip_det = "/results/macro_ip_det_{session_id}.ijm".format(**args)
+    process_xml = "../results/bigstitcher_{session_id}.xml".format(**args)
+    macro_ip_det = "../results/macro_ip_det_{session_id}.ijm".format(**args)
     return {
         "process_xml": process_xml,
         # Do not use, this is the whole VM at the moment, not what is available for the capsule
@@ -253,7 +258,7 @@ def get_auto_parameters(args: Dict) -> Dict:
 
 
 def main():  # pragma: no cover
-    """Entry point if run as a standalone program."""
+    """Entry point if run as a standalone program. This uses the old-style config."""
     logging.basicConfig(format="%(asctime)s %(levelname)-7s %(message)s")
 
     logger = logging.getLogger()
@@ -332,6 +337,122 @@ def main():  # pragma: no cover
             reg_index += 1
 
     logger.info("Done.")
+
+
+def get_imagej_wrapper_metadata(parameters: dict):  # pragma: no cover
+    """Initiate metadata instance with current timestamp and configuration."""
+    t = datetime.datetime.utcnow()
+    dp = DataProcess(
+        name=ProcessName.IMAGE_TILE_ALIGNMENT,
+        software_version="0.1.0",
+        start_date_time=t,
+        end_date_time=t,
+        input_location="TBD",
+        output_location="TBD",
+        code_url="https://github.com/AllenNeuralDynamics/aind-exaSPIM-pipeline-utils",
+        code_version=__version__,
+        parameters=parameters,
+        outputs=None,
+        notes="IN PROGRESS",
+    )
+    return dp
+
+
+def set_metadata_done(meta: DataProcess) -> None:  # pragma: no cover
+    """Update end timestamp and set metadata note to ``DONE``.
+
+    Parameters
+    ----------
+    meta: DataProcess
+      Capsule metadata instance.
+    """
+    t = datetime.datetime.utcnow()
+    meta.end_date_time = t
+    meta.notes = "DONE"
+
+
+def imagej_wrapper_main():  # pragma: no cover
+    """Entry point with the manifest config."""
+    logging.basicConfig(format="%(asctime)s %(levelname)-7s %(message)s")
+
+    logger = logging.getLogger()
+    pipeline_manifest = get_capsule_manifest()
+
+    args = {
+        "dataset_xml": "../data/manifest/dataset.xml",
+        "session_id": pipeline_manifest.pipeline_suffix,
+        "log_level": logging.DEBUG,
+    }
+
+    logger.setLevel(logging.DEBUG)
+    args.update(get_auto_parameters(args))
+    process_meta = get_imagej_wrapper_metadata({'ip_detection': pipeline_manifest.ip_detection,
+                                                'ip_registrations': pipeline_manifest.ip_registrations})
+    write_process_metadata(process_meta, prefix="ipreg")
+    ip_det_parameters = pipeline_manifest.ip_detection
+    if ip_det_parameters is not None:
+        logger.info("Copying input xml %s -> %s", args["dataset_xml"], args["process_xml"])
+        shutil.copy(args["dataset_xml"], args["process_xml"])
+
+        det_params = pipeline_manifest.ip_detection.dict()
+        det_params.update(pipeline_manifest.ip_detection.IJwrap.dict())
+        det_params["process_xml"] = args["process_xml"]
+        logger.info("Creating macro %s", args["macro_ip_det"])
+        with open(args["macro_ip_det"], "w") as f:
+            f.write(ImagejMacros.get_macro_ip_det(det_params))
+        r = wrapper_cmd_run(
+            [
+                "ImageJ",
+                "-Dimagej.updater.disableAutocheck=true",
+                "--headless",
+                "--memory",
+                "{memgb}G".format(**det_params),
+                "--console",
+                "--run",
+                args["macro_ip_det"],
+            ],
+            logger,
+        )
+        if r != 0:
+            raise RuntimeError("IP detection command failed.")
+    else:
+        if pipeline_manifest.ip_registrations:
+            # We assume that interest point detections are already present in the input dataset
+            # in the folder of the xml dataset file
+            logger.info("Assume already detected interestpoints.")
+            ip_src = os.path.join(os.path.dirname(args["dataset_xml"]), "interestpoints.n5")
+            logger.info("Copying %s -> ../results/", ip_src)
+            shutil.copytree(ip_src, "../results/interestpoints.n5", dirs_exist_ok=True)
+
+    if pipeline_manifest.ip_registrations:
+        reg_index = 0
+        for ipreg_params in pipeline_manifest.ip_registrations:
+            macro_reg = f"../results/macro_ip_reg{reg_index:d}.ijm"
+            reg_params = ipreg_params.dict()
+            reg_params.update(ipreg_params.IJwrap.dict())
+            reg_params["process_xml"] = args["process_xml"]
+            logger.info("Creating macro %s", macro_reg)
+            with open(macro_reg, "w") as f:
+                f.write(ImagejMacros.get_macro_ip_reg(reg_params))
+            r = wrapper_cmd_run(
+                [
+                    "ImageJ",
+                    "-Dimagej.updater.disableAutocheck=true",
+                    "--headless",
+                    "--memory",
+                    "{memgb}G".format(**reg_params),
+                    "--console",
+                    "--run",
+                    macro_reg,
+                ],
+                logger,
+            )
+            if r != 0:
+                raise RuntimeError(f"IP registration {reg_index} command failed.")
+            reg_index += 1
+    logger.info("Done.")
+    set_metadata_done(process_meta)
+    write_process_metadata(process_meta, prefix="ipreg")
 
 
 if __name__ == "__main__":  # pragma: no cover
