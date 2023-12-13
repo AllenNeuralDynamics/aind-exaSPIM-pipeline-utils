@@ -26,11 +26,7 @@ from dask.distributed import Client
 from aind_data_transfer.transformations import ome_zarr
 from aind_data_transfer.util import chunk_utils, io_utils
 from aind_exaspim_pipeline_utils import exaspim_manifest
-from aind_exaspim_pipeline_utils.exaspim_manifest import (
-    write_result_metadata,
-    write_result_manifest,
-    append_metadata_to_manifest,
-)
+from aind_exaspim_pipeline_utils.exaspim_manifest import write_process_metadata
 
 
 def fmt_uri(uri: str) -> str:
@@ -329,7 +325,7 @@ def n5tozarr_da_converter():  # pragma: no cover
     LOGGER.setLevel(logging.INFO)
 
     capsule_manifest = exaspim_manifest.get_capsule_manifest()
-    config = capsule_manifest.processing_pipeline.n5_to_zarr.dict()
+    config = capsule_manifest.n5_to_zarr.dict()
     if config is None:
         raise ValueError("Manifest does not contain configuration for n5tozarr processing")
 
@@ -340,8 +336,8 @@ def n5tozarr_da_converter():  # pragma: no cover
     config["capsule"] = dict(version="n5tozarr_0.1.0", n_cpu=n_cpu)  # TBD: obtain version from CO environment
 
     # Create initial metadata in case the run crashes
-    meta = get_n5tozarr_metadata(config)
-    write_result_metadata(meta)
+    process_meta = get_n5tozarr_metadata(config)
+    write_process_metadata(process_meta, prefix="n5tozarr")
 
     # Start dask cluster
     LOGGER.info("Starting local Dask cluster with %d processes and 2 threads per process.", n_cpu)
@@ -372,10 +368,10 @@ def n5tozarr_da_converter():  # pragma: no cover
     # Run jobs
     run_n5tozarr(config["input_uri"], config["output_uri"], config["voxel_size_zyx"])
     # Update metadata to show that we've finished properly
-    set_metadata_done(meta)
-    write_result_metadata(meta)
-    append_metadata_to_manifest(capsule_manifest, meta)
-    write_result_manifest(capsule_manifest)
+    set_metadata_done(process_meta)
+    write_process_metadata(process_meta, prefix="n5tozarr")
+    # append_metadata_to_manifest(capsule_manifest, meta)
+    # write_result_manifest(capsule_manifest)
     # Close down
     LOGGER.info("Sleep 120s to get workers into an idle state.")
     time.sleep(120)  # leave time for workers to get into an idle state before shutting down
@@ -405,10 +401,10 @@ def get_zarr_multiscale_metadata(config: dict):  # pragma: no cover
 
 def get_n5tozarr_metadata(config: dict):  # pragma: no cover
     """Initiate metadata instance with current timestamp and configuration."""
-    t = datetime.datetime.now()
+    t = datetime.datetime.utcnow()
     dp = DataProcess(
         name=ProcessName.FILE_CONVERSION,
-        version=config["capsule"]["version"],
+        software_version=config["capsule"]["version"],
         start_date_time=t,
         end_date_time=t,
         input_location=config["input_uri"],
@@ -430,7 +426,7 @@ def set_metadata_done(meta: DataProcess) -> None:  # pragma: no cover
     meta: DataProcess
       Capsule metadata instance.
     """
-    t = datetime.datetime.now()
+    t = datetime.datetime.utcnow()
     meta.end_date_time = t
     meta.notes = "DONE"
 
@@ -443,7 +439,7 @@ def zarr_multiscale_converter():  # pragma: no cover
     LOGGER.setLevel(logging.INFO)
 
     capsule_manifest = exaspim_manifest.get_capsule_manifest()
-    config = capsule_manifest.processing_pipeline.zarr_multiscale.dict()
+    config = capsule_manifest.zarr_multiscale.dict()
     if config is None:
         raise ValueError("Manifest does not contain configuration for zarr_multiscale processing")
 
@@ -459,8 +455,8 @@ def zarr_multiscale_converter():  # pragma: no cover
     )  # TBD: obtain version from CO environment
 
     # Create initial metadata in case the run crashes
-    meta = get_zarr_multiscale_metadata(config)
-    write_result_metadata(meta)
+    process_meta = get_zarr_multiscale_metadata(config)
+    write_process_metadata(process_meta, prefix="zarr_multiscale")
 
     # Start dask cluster
     LOGGER.info("Starting local Dask cluster with %d processes and 2 threads per process.", n_cpu)
@@ -491,10 +487,10 @@ def zarr_multiscale_converter():  # pragma: no cover
     # Run jobs
     run_zarr_multiscale(config["input_uri"], config["output_uri"], config["voxel_size_zyx"])
     # Update metadata to show that we've finished properly
-    set_metadata_done(meta)
-    write_result_metadata(meta)
-    append_metadata_to_manifest(capsule_manifest, meta)
-    write_result_manifest(capsule_manifest)
+    set_metadata_done(process_meta)
+    write_process_metadata(process_meta, prefix="zarr_multiscale")
+    # append_metadata_to_manifest(capsule_manifest, meta)
+    # write_result_manifest(capsule_manifest)
     # Close down
     LOGGER.info("Sleep 120s to get workers into an idle state.")
     time.sleep(120)  # leave time for workers to get into an idle state before shutting down
