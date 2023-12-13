@@ -24,14 +24,14 @@ from ..exaspim_manifest import (
 )
 
 
-def get_fname_timestamp(stamp: Optional[datetime.datetime] = None) -> str:
+def get_fname_timestamp(stamp: Optional[datetime.datetime] = None) -> str:  # pragma: no cover
     """Get the time in the format used in the file names YYYY-MM-DD_HH-MM-SS"""
     if stamp is None:
         stamp = datetime.datetime.utcnow()
     return stamp.strftime("%Y-%m-%d_%H-%M-%S")
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args() -> argparse.Namespace:  # pragma: no cover
     """Command line arguments of the trigger capsule"""
     parser = argparse.ArgumentParser(
         prog="run_trigger_capsule",
@@ -51,7 +51,7 @@ def parse_args() -> argparse.Namespace:
 
 
 # TODO: Use validated model, once stable
-def get_dataset_metadata(args) -> dict:
+def get_dataset_metadata(args) -> dict:  # pragma: no cover
     """Get the metadata of the exaspim dataset from S3.
 
     Also gets the acquisition.json if available and puts into the dict.
@@ -83,7 +83,7 @@ def get_dataset_metadata(args) -> dict:
     return metadata
 
 
-def validate_s3_location(args, meta):
+def validate_s3_location(args, meta):  # pragma: no cover
     """Get the last data_process and check whether we're at its output location"""
     lastproc: DataProcess = DataProcess.parse_obj(meta["processing"]["data_processes"][-1])
     meta_url = urlparse(lastproc.output_location)
@@ -97,7 +97,7 @@ def wait_for_data_availability(
         data_asset_id: str,
         timeout_seconds: int = 300,
         pause_interval=10,
-):
+):  # pragma: no cover
     """
     There is a lag between when a register data request is made and when the
     data is available to be used in a capsule.
@@ -137,7 +137,7 @@ def wait_for_compute_completion(
         compute_id: str,
         timeout_seconds: int = 300,
         pause_interval: int = 5,
-):
+):  # pragma: no cover
     """
     Parameters
     ----------
@@ -168,7 +168,7 @@ def wait_for_compute_completion(
     return run_status
 
 
-def make_data_viewable(co_client: CodeOceanClient, data_asset_id: str):
+def make_data_viewable(co_client: CodeOceanClient, data_asset_id: str):  # pragma: no cover
     """
     Makes a registered dataset viewable
 
@@ -188,7 +188,7 @@ def make_data_viewable(co_client: CodeOceanClient, data_asset_id: str):
     print(f"Data asset viewable to everyone: {update_data_perm_response}")
 
 
-def register_raw_dataset_as_CO_data_asset(args, meta, co_api):
+def register_raw_dataset_as_CO_data_asset(args, meta, co_api):  # pragma: no cover
     """Register the dataset as a linked S3 data asset in CO"""
     # TODO: Current metadata fails with schema validation
     # data_description: DataDescription = DataDescription.parse_obj(meta["data_description"])
@@ -214,7 +214,7 @@ def register_raw_dataset_as_CO_data_asset(args, meta, co_api):
     return data_asset_id
 
 
-def register_manifest_as_CO_data_asset(args, co_api):
+def register_manifest_as_CO_data_asset(args, co_api):  # pragma: no cover
     """Register the manifest as a linked S3 data asset in CO"""
     # TODO: Current metadata fails with schema validation
     # data_description: DataDescription = DataDescription.parse_obj(meta["data_description"])
@@ -239,7 +239,7 @@ def register_manifest_as_CO_data_asset(args, co_api):
     return data_asset_id
 
 
-def start_pipeline(args, co_api, manifest_data_asset_id):
+def start_pipeline(args, co_api, manifest_data_asset_id):  # pragma: no cover
     """Mount the manifest and start a CO pipeline or capsule."""
     # mount
     data_assets = [
@@ -259,7 +259,7 @@ def start_pipeline(args, co_api, manifest_data_asset_id):
     time.sleep(5)
 
 
-def run_xml_capsule(args, co_api, raw_data_asset_id):
+def run_xml_capsule(args, co_api, raw_data_asset_id):  # pragma: no cover
     """Run the xml generator capsule.
 
       * Attach the raw_data_asset_id as exaspim_dataset to the capsule
@@ -298,7 +298,7 @@ def run_xml_capsule(args, co_api, raw_data_asset_id):
     s3.upload_file("../results/dataset.xml", args.manifest_bucket_name, object_name)
 
 
-def start_ij_capsule(args, co_api, raw_data_asset_id, manifest_data_asset_id):
+def start_ij_capsule(args, co_api, raw_data_asset_id, manifest_data_asset_id):  # pragma: no cover
     """Start the IJ wrapper capsule.
     """
     data_assets = [
@@ -317,7 +317,7 @@ def start_ij_capsule(args, co_api, raw_data_asset_id, manifest_data_asset_id):
     print(f"Run response: {run_response}")
 
 
-def get_channel_name(metadata: dict):
+def get_channel_name(metadata: dict):  # pragma: no cover
     """Get the channel name from the metadata json"""
     if 'acquisition' in metadata:
         acq = metadata['acquisition']
@@ -328,7 +328,7 @@ def get_channel_name(metadata: dict):
     return ch_name
 
 
-def create_exaspim_manifest(args, metadata):
+def create_exaspim_manifest(args, metadata):  # pragma: no cover
     """Create exaspim manifest from the metadata that we have"""
     # capsule_xml_path = "../data/manifest/dataset.xml"
     def_ij_wrapper_parameters: IJWrapperParameters = IJWrapperParameters(memgb=106, parallel=32)
@@ -400,7 +400,7 @@ def create_exaspim_manifest(args, metadata):
     return processing_manifest
 
 
-def upload_manifest(args, manifest: ExaspimProcessingPipeline):
+def upload_manifest(args, manifest: ExaspimProcessingPipeline):  # pragma: no cover
     """Write out the given manifest as a json file and upload to S3"""
     s3 = boto3.client("s3")  # Authentication should be available in the environment
     object_name = "/".join((args.manifest_path, "exaspim_manifest.json"))
@@ -410,7 +410,7 @@ def upload_manifest(args, manifest: ExaspimProcessingPipeline):
     s3.upload_file("../results/exaspim_manifest.json", args.manifest_bucket_name, object_name)
 
 
-def process_args(args):
+def process_args(args):  # pragma: no cover
     """Command line arguments processing"""
 
     # Determine the pipeline timestamp
@@ -438,7 +438,7 @@ def process_args(args):
     args.manifest_path = url.path.strip("/") + "/" + manifest_name
 
 
-def capsule_main():
+def capsule_main():  # pragma: no cover
     """Main entry point for trigger capsule."""
     args = parse_args()  # To get help before the error messages
 

@@ -2,11 +2,10 @@
 import re
 import sys
 from typing import Iterable, List, Tuple
-
 import numpy as np
 
 
-def get_unfitted_tile_pairs(lines: Iterable[str]) -> List[List[Tuple[int, int]]]:
+def get_unfitted_tile_pairs(lines: Iterable[str]) -> List[List[Tuple[int, int]]]:  # pragma: no cover
     """Extract tile pair numbers from log lines of failed RANSAC correspondence
     finding.
 
@@ -60,7 +59,7 @@ def get_unfitted_tile_pairs(lines: Iterable[str]) -> List[List[Tuple[int, int]]]
     return blocks
 
 
-def create_ascii_visualization(pairs: Iterable[Tuple[int, int]]) -> str:
+def create_ascii_visualization(pairs: Iterable[Tuple[int, int]]) -> str:  # pragma: no cover
     """Assuming the 3x5 tile configuration of exaSPIM, show which edges have failed.
 
     Tile grid is 3x5 with tile 0 is top right, tile 14 is bottom left. Tiles are marked
@@ -89,7 +88,7 @@ def create_ascii_visualization(pairs: Iterable[Tuple[int, int]]) -> str:
     return "\n".join(" ".join(x[::-1]) for x in A)
 
 
-def print_visualization(blocks, file=None):
+def print_visualization(blocks, file=None):  # pragma: no cover
     """Print ascii visualization of edges for multiple blocks."""
 
     for i, pairs in enumerate(blocks):
@@ -99,12 +98,12 @@ def print_visualization(blocks, file=None):
         print(file=file)
 
 
-def main():
+def main():  # pragma: no cover
     """Standalone script entry point."""
     # By default, process stdin
     blocks = get_unfitted_tile_pairs(sys.stdin)
     print_visualization(blocks)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

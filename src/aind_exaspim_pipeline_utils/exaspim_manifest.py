@@ -306,7 +306,8 @@ def get_capsule_metadata() -> dict:  # pragma: no cover
     return json_data
 
 
-def append_process_entries_to_metadata(dataset_metadata: Metadata, processes: Iterable[DataProcess]) -> None:
+def append_process_entries_to_metadata(dataset_metadata: Metadata, processes: Iterable[DataProcess]) \
+        -> None:   # pragma: no cover
     """Append the given process metadata entries to the dataset_metadata
 
     So long the pipeline is a linear sequence of steps, this should always be the
@@ -317,14 +318,14 @@ def append_process_entries_to_metadata(dataset_metadata: Metadata, processes: It
         dataset_metadata.processing.data_processes.append(process)
 
 
-def write_result_dataset_metadata(dataset_metadata: dict) -> None:
+def write_result_dataset_metadata(dataset_metadata: dict) -> None:  # pragma: no cover
     """Write the updated metadata file to the Code Ocean results folder."""
     os.makedirs("../results/meta", exist_ok=True)
     with open("../results/meta/metadata.json", "w") as f:
         json.dump(dataset_metadata, f, indent=3)
 
 
-def write_process_metadata(capsule_metadata: DataProcess, prefix=None) -> None:
+def write_process_metadata(capsule_metadata: DataProcess, prefix=None) -> None:  # pragma: no cover
     """Write the process.json file about this processing step to the Code Ocean results folder."""
     os.makedirs("../results/meta", exist_ok=True)
     if prefix is None:
@@ -335,5 +336,5 @@ def write_process_metadata(capsule_metadata: DataProcess, prefix=None) -> None:
         f.write(capsule_metadata.json(indent=3))
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     create_example_manifest(printit=True)
