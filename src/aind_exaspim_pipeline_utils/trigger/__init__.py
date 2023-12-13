@@ -1,0 +1,1 @@
+"""Trigger capsule init"""

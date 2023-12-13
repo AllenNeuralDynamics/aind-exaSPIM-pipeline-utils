@@ -3,13 +3,11 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 from datetime import datetime
 from typing import Optional, Tuple, Iterable, List
 
-from aind_data_schema import DataProcess, Processing, Metadata
+from aind_data_schema import DataProcess, Metadata
 from aind_data_schema.base import AindModel
-from aind_data_schema.data_description import Institution
 from pydantic import Field, validator
 import argparse
 
@@ -61,6 +59,7 @@ class ZarrMultiscaleParameters(AindModel):  # pragma: no cover
 
 
 class IJWrapperParameters(AindModel):  # pragma: no cover
+    """ImageJ wrapper memory and parallelization runtime parameters"""
     memgb: int = Field(
         ...,
         title="Allowed JVM heap memory in GB."
@@ -96,6 +95,7 @@ class IPDetectionParameters(AindModel):  # pragma: no cover
 
     @validator("bead_choice")
     def validate_bead_choice(cls, v: str) -> str:
+        """Validate bead choice."""
         if v in ImagejMacros.MAP_BEAD_CHOICE.keys():
             return v
         else:
@@ -105,6 +105,7 @@ class IPDetectionParameters(AindModel):  # pragma: no cover
 
     @validator("ip_limitation_choice")
     def validate_ip_limitation_choice(cls, v: str) -> str:
+        """Validate ip limitation choice."""
         if v in ImagejMacros.MAP_IP_LIMITATION_CHOICE.keys():
             return v
         else:
@@ -137,6 +138,7 @@ class IPRegistrationParameters(AindModel):  # pragma: no cover
 
     @validator("transformation_choice")
     def validate_transformation_choice(cls, v: str) -> str:
+        """Validate transformation choice"""
         if v in ImagejMacros.MAP_TRANSFORMATION.keys():
             return v
         else:
@@ -146,6 +148,7 @@ class IPRegistrationParameters(AindModel):  # pragma: no cover
 
     @validator("compare_views_choice")
     def validate_compare_views_choice(cls, v: str) -> str:
+        """Validate compare views choice."""
         if v in ImagejMacros.MAP_COMPARE_VIEWS.keys():
             return v
         else:
@@ -155,6 +158,7 @@ class IPRegistrationParameters(AindModel):  # pragma: no cover
 
     @validator("interest_point_inclusion_choice")
     def validate_interest_point_inclusion_choice(cls, v: str) -> str:
+        """Validate interest point inclusion choice"""
         if v in ImagejMacros.MAP_INTEREST_POINT_INCLUSION.keys():
             return v
         else:
@@ -166,6 +170,7 @@ class IPRegistrationParameters(AindModel):  # pragma: no cover
 
     @validator("fix_views_choice")
     def validate_fix_views_choice(cls, v: str) -> str:
+        """Validate fix views choice"""
         if v in ImagejMacros.MAP_FIX_VIEWS.keys():
             return v
         else:
@@ -175,6 +180,7 @@ class IPRegistrationParameters(AindModel):  # pragma: no cover
 
     @validator("map_back_views_choice")
     def validate_map_back_views_choice(cls, v: str) -> str:
+        """Validate map back views choice"""
         if v in ImagejMacros.MAP_MAP_BACK_VIEWS.keys():
             return v
         else:
@@ -184,6 +190,7 @@ class IPRegistrationParameters(AindModel):  # pragma: no cover
 
     @validator("regularize_with_choice")
     def validate_regularize_with_choice(cls, v: str) -> str:
+        """Validate regularize with choice"""
         if v in ImagejMacros.MAP_REGULARIZATION.keys():
             return v
         else:
@@ -225,7 +232,8 @@ class ExaspimProcessingPipeline(AindModel):  # pragma: no cover
     pipeline_suffix: str = Field(..., title="Filename timestamp suffix")
     name: Optional[str] = Field(
         None,
-        description="Name of data, conventionally also the name of the directory containing all data and metadata",
+        description="Name of data, conventionally also the name of "
+                    "the directory containing all data and metadata",
         title="Name",
     )
 
@@ -269,7 +277,8 @@ def create_example_manifest(printit=True) -> ExaspimProcessingPipeline | None:  
     return processing_manifest_example
 
 
-def get_capsule_manifest(args: Optional[argparse.Namespace] = None) -> ExaspimProcessingPipeline:  # pragma: no cover
+def get_capsule_manifest(args: Optional[argparse.Namespace] = None) \
+        -> ExaspimProcessingPipeline:  # pragma: no cover
     """Get the manifest file from its Code Ocean location or as given in the cmd-line argument.
 
     Raises
@@ -301,7 +310,8 @@ def append_process_entries_to_metadata(dataset_metadata: Metadata, processes: It
     """Append the given process metadata entries to the dataset_metadata
 
     So long the pipeline is a linear sequence of steps, this should always be the
-    case. Otherwise the process metadata should be collected and appended at the end of the parallel processing capsules.
+    case. Otherwise the process metadata should be collected and appended
+    at the end of the parallel processing capsules.
     """
     for process in processes:
         dataset_metadata.processing.data_processes.append(process)

@@ -98,11 +98,13 @@ def print_visualization(blocks, file=None):
         print(create_ascii_visualization(pairs), file=file)
         print(file=file)
 
+
 def main():
     """Standalone script entry point."""
     # By default, process stdin
     blocks = get_unfitted_tile_pairs(sys.stdin)
     print_visualization(blocks)
+
 
 if __name__ == "__main__":
     main()

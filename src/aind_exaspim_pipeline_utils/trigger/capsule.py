@@ -11,11 +11,8 @@ import json
 from urllib.parse import urlparse
 import urllib.request
 
-import botocore.client
 from aind_codeocean_api.codeocean import CodeOceanClient
-from aind_codeocean_api.credentials import CodeOceanCredentials
-from aind_data_schema import DataProcess, DataDescription
-from aind_data_schema.data_description import Institution
+from aind_data_schema import DataProcess
 
 from ..exaspim_manifest import (
     IJWrapperParameters,
@@ -35,6 +32,7 @@ def get_fname_timestamp(stamp: Optional[datetime.datetime] = None) -> str:
 
 
 def parse_args() -> argparse.Namespace:
+    """Command line arguments of the trigger capsule"""
     parser = argparse.ArgumentParser(
         prog="run_trigger_capsule",
         description="This program prepares the CO environment and launches the exaSPIM processing pipeline",
@@ -133,14 +131,14 @@ def wait_for_data_availability(
             break_flag = True
     return response
 
+
 def wait_for_compute_completion(
         co_api,
         compute_id: str,
-        timeout_seconds: int= 300,
-        pause_interval: int= 5,
+        timeout_seconds: int = 300,
+        pause_interval: int = 5,
 ):
     """
-    
     Parameters
     ----------
     data_asset_id : str
@@ -161,13 +159,14 @@ def wait_for_compute_completion(
         if run_status.status_code != 200:
             raise RuntimeError(f"Cannot get compute status {compute_id}")
         run_status = run_status.json()
-        if run_status['state']=='completed' and run_status['has_results'] and\
-            run_status['end_status']=='succeeded':
+        if run_status['state'] == 'completed' and run_status['has_results'] and \
+                run_status['end_status'] == 'succeeded':
             break
         print(f"Waiting loop {i_check}: {run_status}")
     else:
         raise RuntimeError(f"Wait for {compute_id} timed out or ended unsuccessfully.")
     return run_status
+
 
 def make_data_viewable(co_client: CodeOceanClient, data_asset_id: str):
     """
@@ -241,6 +240,7 @@ def register_manifest_as_CO_data_asset(args, co_api):
 
 
 def start_pipeline(args, co_api, manifest_data_asset_id):
+    """Mount the manifest and start a CO pipeline or capsule."""
     # mount
     data_assets = [
         {"id": manifest_data_asset_id, "mount": "manifest"},
@@ -257,6 +257,7 @@ def start_pipeline(args, co_api, manifest_data_asset_id):
 
     print(f"Run response: {run_response.json()}")
     time.sleep(5)
+
 
 def run_xml_capsule(args, co_api, raw_data_asset_id):
     """Run the xml generator capsule.
@@ -284,7 +285,7 @@ def run_xml_capsule(args, co_api, raw_data_asset_id):
     print(f"Run response: {run_response}")
     wait_for_compute_completion(co_api, compute_id)
 
-    result_response = co_api.get_result_file_download_url(run_response["id"],"output.xml")
+    result_response = co_api.get_result_file_download_url(run_response["id"], "output.xml")
     result = result_response.json()
     if result_response.status_code != 200 or 'url' not in result:
         raise RuntimeError("Cannot get xml capsule result")
@@ -295,6 +296,7 @@ def run_xml_capsule(args, co_api, raw_data_asset_id):
     object_name = "/".join((args.manifest_path, "dataset.xml"))
     print(f"Uploading to bucket {args.manifest_bucket_name} : {object_name}")
     s3.upload_file("../results/dataset.xml", args.manifest_bucket_name, object_name)
+
 
 def start_ij_capsule(args, co_api, raw_data_asset_id, manifest_data_asset_id):
     """Start the IJ wrapper capsule.
@@ -314,7 +316,9 @@ def start_ij_capsule(args, co_api, raw_data_asset_id, manifest_data_asset_id):
     run_response = run_response.json()
     print(f"Run response: {run_response}")
 
+
 def get_channel_name(metadata: dict):
+    """Get the channel name from the metadata json"""
     if 'acquisition' in metadata:
         acq = metadata['acquisition']
         ch_name = acq["tiles"][0]["channel"]["channel_name"]
@@ -322,6 +326,7 @@ def get_channel_name(metadata: dict):
         print("Warning: Cannot get channel name, defaults to ch488")
         ch_name = "ch488"
     return ch_name
+
 
 def create_exaspim_manifest(args, metadata):
     """Create exaspim manifest from the metadata that we have"""
@@ -371,15 +376,15 @@ def create_exaspim_manifest(args, metadata):
     n5_to_zarr: N5toZarrParameters = N5toZarrParameters(
         voxel_size_zyx=(1.0, 0.748, 0.748),
         input_uri=f"s3://{args.dataset_bucket_name}/{args.dataset_prefix}"
-            f"_fusion_{args.fname_timestamp}/fused.n5/{ch_name}/",
+                  f"_fusion_{args.fname_timestamp}/fused.n5/{ch_name}/",
         output_uri=f"s3://{args.dataset_bucket_name}/{args.dataset_prefix}"
-            f"_fusion_{args.fname_timestamp}/fused.zarr/",
+                   f"_fusion_{args.fname_timestamp}/fused.zarr/",
     )
 
     zarr_multiscale: ZarrMultiscaleParameters = ZarrMultiscaleParameters(
         voxel_size_zyx=(1.0, 0.748, 0.748),
         input_uri=f"s3://{args.dataset_bucket_name}/{args.dataset_prefix}"
-            f"_fusion_{args.fname_timestamp}/fused.zarr/",
+                  f"_fusion_{args.fname_timestamp}/fused.zarr/",
     )
 
     processing_manifest: ExaspimProcessingPipeline = ExaspimProcessingPipeline(
@@ -463,7 +468,6 @@ def capsule_main():
     upload_manifest(args, manifest)
     manifest_data_asset_id = register_manifest_as_CO_data_asset(args, co_api)
     if args.xml_capsule_id:
-      run_xml_capsule(args, co_api, raw_data_asset_id)
+        run_xml_capsule(args, co_api, raw_data_asset_id)
     if args.ij_capsule_id:
         start_ij_capsule(args, co_api, raw_data_asset_id, manifest_data_asset_id)
-    

@@ -18,7 +18,7 @@ from aind_data_schema.processing import ProcessName
 
 from . import __version__
 from .imagej_macros import ImagejMacros
-from .exaspim_manifest import ExaspimProcessingPipeline, get_capsule_manifest, write_process_metadata
+from .exaspim_manifest import get_capsule_manifest, write_process_metadata
 
 
 class IPDetectionSchema(argschema.ArgSchema):  # pragma: no cover
