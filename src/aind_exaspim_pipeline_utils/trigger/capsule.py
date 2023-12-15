@@ -238,7 +238,7 @@ def register_raw_dataset_as_CO_data_asset(args, meta, co_client):  # pragma: no 
     return data_asset_id
 
 
-class RegisterDataJob(CapsuleJob):
+class RegisterDataJob(CapsuleJob):  # pragma: no cover
     def run_job(self):
         pass
 
@@ -266,18 +266,18 @@ def register_manifest_as_CO_data_asset(args, co_client):  # pragma: no cover
     return data_asset_id
 
 
-def start_pipeline(args, co_api, manifest_data_asset_id):  # pragma: no cover
+def start_pipeline(args, co_client, manifest_data_asset_id):  # pragma: no cover
     """Mount the manifest and start a CO pipeline or capsule."""
     # mount
     data_assets = [ComputationDataAsset(id=manifest_data_asset_id, mount="manifest"), ]
-    C = RegisterDataJob()
+    C = RegisterDataJob(configs={}, co_client=co_client)
     run_response = C.run_capsule(capsule_id=args.pipeline_id, data_assets=data_assets)
 
     print(f"Run response: {run_response.json()}")
     time.sleep(5)
 
 
-def run_xml_capsule(args, co_api, raw_data_asset_id):  # pragma: no cover
+def run_xml_capsule(args, co_client, raw_data_asset_id):  # pragma: no cover
     """Run the xml generator capsule.
 
       * Attach the raw_data_asset_id as exaspim_dataset to the capsule
@@ -287,12 +287,12 @@ def run_xml_capsule(args, co_api, raw_data_asset_id):  # pragma: no cover
     data_assets = [
         ComputationDataAsset(id=args.xml_capsule_id, mount="exaspim_dataset"),
     ]
-    C = RegisterDataJob()
+    C = RegisterDataJob(configs={}, co_client=co_client)
     run_response = C.run_capsule(capsule_id=args.pipeline_id, data_assets=data_assets, pause_interval=10)
 
     run_response = run_response.json()
 
-    result_response = co_api.get_result_file_download_url(run_response["id"], "output.xml")
+    result_response = co_client.get_result_file_download_url(run_response["id"], "output.xml")
     result = result_response.json()
     if result_response.status_code != 200 or 'url' not in result:
         raise RuntimeError("Cannot get xml capsule result")
@@ -305,7 +305,7 @@ def run_xml_capsule(args, co_api, raw_data_asset_id):  # pragma: no cover
     s3.upload_file("../results/dataset.xml", args.manifest_bucket_name, object_name)
 
 
-def start_ij_capsule(args, co_api, raw_data_asset_id, manifest_data_asset_id):  # pragma: no cover
+def start_ij_capsule(args, co_client, raw_data_asset_id, manifest_data_asset_id):  # pragma: no cover
     """Start the IJ wrapper capsule.
     """
     data_assets = [
@@ -314,12 +314,13 @@ def start_ij_capsule(args, co_api, raw_data_asset_id, manifest_data_asset_id):  
     ]
 
     print("Starting IJ wrapper capsule")
-    C = RegisterDataJob()
+    C = RegisterDataJob(configs={}, co_client=co_client)
     run_response = C.run_capsule(
         capsule_id=args.ij_capsule_id,
         data_assets=data_assets
     )
-
+    # Todo wait for results and register the run as a data asset with the timestamp
+    # then upload to aind-open-data?
     run_response = run_response.json()
     print(f"Run response: {run_response}")
 
