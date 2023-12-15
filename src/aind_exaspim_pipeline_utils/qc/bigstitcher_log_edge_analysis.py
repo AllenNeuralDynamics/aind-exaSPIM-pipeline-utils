@@ -32,7 +32,7 @@ def get_unfitted_tile_pairs(lines: Iterable[str]) -> List[List[Tuple[int, int]]]
     for line in lines:
         line = line.strip()
         # RANSAC result lines
-        m = re.match('.*\\[TP=(\\d+) ViewId=(\\d+) >>> TP=(\\d+) ViewId=(\\d+)\\]: (\\w+)', line)
+        m = re.match(".*\\[TP=(\\d+) ViewId=(\\d+) >>> TP=(\\d+) ViewId=(\\d+)\\]: (\\w+)", line)
         if m:
             if m.group(5) == "NO" or m.group(5) == "Not":  # Failed RANSAC
                 a = int(m.group(4))
@@ -74,15 +74,15 @@ def create_ascii_visualization(pairs: Iterable[Tuple[int, int]]) -> str:  # prag
     -------
     r : Multi-line string
     """
-    A = np.zeros(dtype='U', shape=(5, 9))
+    A = np.zeros(dtype="U", shape=(5, 9))
     A.fill(".")
     A[0::2, 0::2] = np.array(list("0369c147ad258be"), dtype="U").reshape((3, 5))
     for p in pairs:
         a, b = p
         if b - a == 3:
-            A[(a % 3) * 2, (a // 3) * 2 + 1] = 'X'
+            A[(a % 3) * 2, (a // 3) * 2 + 1] = "X"
         elif b - a == 1:
-            A[(a % 3) * 2 + 1, (a // 3) * 2] = 'X'
+            A[(a % 3) * 2 + 1, (a // 3) * 2] = "X"
         else:
             raise ValueError
     return "\n".join(" ".join(x[::-1]) for x in A)
@@ -92,7 +92,7 @@ def print_visualization(blocks, file=None):  # pragma: no cover
     """Print ascii visualization of edges for multiple blocks."""
 
     for i, pairs in enumerate(blocks):
-        print(f"Registration block {i + 1:1d}:", file=file)
+        print(f"Log block {i:1d}:", file=file)
         print("=====================", file=file)
         print(create_ascii_visualization(pairs), file=file)
         print(file=file)

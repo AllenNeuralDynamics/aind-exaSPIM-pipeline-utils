@@ -18,10 +18,12 @@ dynamic = ["version"]
 
 dependencies = [
     'argschema',
+    's3fs',
     'pydantic',
     'psutil',
     'aind-data-schema',
-    'aind-codeocean-api'
+    'aind-codeocean-api==0.3.0',
+    'aind-ng-link',
 ]
 
 [project.optional-dependencies]
@@ -42,7 +44,7 @@ n5tozarr = [
     'distributed',
     'zarr',
     'numcodecs',
-    'aind-data-transfer[full]',
+    'aind-data-transfer[full]==0.32.0',
     # missing dependencies from aind-data-transfer[full]
     # These supposed to be installed by post_install.sh
 #    'hdf5plugin',
