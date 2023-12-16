@@ -13,8 +13,8 @@ from typing import Dict, List, Optional
 
 import requests
 
-from aind_data_schema.core.data_description import DataLevel
-# from aind_data_schema.data_description import DataLevel
+# from aind_data_schema.core.data_description import DataLevel
+from aind_data_schema.data_description import DataLevel
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.computations_requests import (
     ComputationDataAsset, RunCapsuleRequest)
@@ -202,6 +202,7 @@ class CapsuleJob:
         )
         run_capsule_response = self.co_client.run_capsule(request=run_capsule_request)
         run_capsule_response_json = run_capsule_response.json()
+        print(run_capsule_response_json)
         computation_id = run_capsule_response_json["id"]
 
         if pause_interval:

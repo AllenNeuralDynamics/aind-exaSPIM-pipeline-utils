@@ -15,6 +15,8 @@ import urllib.request
 import botocore.exceptions
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.computations_requests import ComputationDataAsset
+import sys
+print(sys.path)
 from aind_trigger_codeocean.pipelines import CapsuleJob, RegisterAindData
 
 from ..exaspim_manifest import (
@@ -44,7 +46,7 @@ def parse_args() -> argparse.Namespace:  # pragma: no cover
         prog="run_trigger_capsule",
         description="This program prepares the CO environment and launches the exaSPIM processing pipeline",
     )
-    parser.add_argument("--pipeline_id", help="CO pipeline id to launch")
+    # parser.add_argument("--pipeline_id", help="CO pipeline id to launch")
     parser.add_argument(
         "--exaspim_data_uri", help="S3 URI Top-level location of input exaSPIM "
                                    "dataset in aind-open-data", required=True,
@@ -96,7 +98,7 @@ def get_dataset_metadata(args) -> dict:  # pragma: no cover
                         continue
         with open(f"../results/{f}", "r") as jfile:
             data = json.load(jfile)
-            metadata[f.strip(".json")] = data
+            metadata[os.path.splitext(f)[0]] = data
 
         if 'acquisition' in metadata:
             break
@@ -106,6 +108,7 @@ def get_dataset_metadata(args) -> dict:  # pragma: no cover
         metadata['acquisition'] = metadata['exaSPIM_acquisition']
         del metadata['exaSPIM_acquisition']
 
+    print(metadata)
     return metadata
 
 
@@ -218,6 +221,7 @@ def make_data_viewable(co_client: CodeOceanClient, data_asset_id: str):  # pragm
 def register_raw_dataset_as_CO_data_asset(args, meta, co_client):  # pragma: no cover
     """Register the dataset as a linked S3 data asset in CO"""
 
+    logger.info(f"Register dataset as a data asset in CO. {args.dataset_bucket_name} {args.dataset_name}")
     # Register data asset
     data_configs = {
         'prefix': args.dataset_name,
@@ -271,7 +275,7 @@ def start_pipeline(args, co_client, manifest_data_asset_id):  # pragma: no cover
     # mount
     data_assets = [ComputationDataAsset(id=manifest_data_asset_id, mount="manifest"), ]
     C = RegisterDataJob(configs={}, co_client=co_client)
-    run_response = C.run_capsule(capsule_id=args.pipeline_id, data_assets=data_assets)
+    run_response = C.run_capsule(capsule_id=args.ij_capsule_id, data_assets=data_assets)
 
     print(f"Run response: {run_response.json()}")
     time.sleep(5)
@@ -285,10 +289,10 @@ def run_xml_capsule(args, co_client, raw_data_asset_id):  # pragma: no cover
       * Download output.xml and upload it to the manifest location.
     """
     data_assets = [
-        ComputationDataAsset(id=args.xml_capsule_id, mount="exaspim_dataset"),
+        ComputationDataAsset(id=raw_data_asset_id, mount="exaspim_dataset"),
     ]
     C = RegisterDataJob(configs={}, co_client=co_client)
-    run_response = C.run_capsule(capsule_id=args.pipeline_id, data_assets=data_assets, pause_interval=10)
+    run_response = C.run_capsule(capsule_id=args.xml_capsule_id, data_assets=data_assets, pause_interval=10)
 
     run_response = run_response.json()
 
@@ -445,7 +449,7 @@ def process_args(args):  # pragma: no cover
         args.raw_dataset_name = os.path.basename(args.raw_dataset_prefix)  # Only the last entry as "name"
     else:
         # The input dataset is a raw dataset
-        args.raw_dataset_bucket_name = args.daset_bucket_name
+        args.raw_dataset_bucket_name = args.dataset_bucket_name
         args.raw_dataset_prefix = args.dataset_prefix
         args.raw_dataset_name = args.dataset_name
     # Get manifest bucket and path and 'directory' name
@@ -473,7 +477,6 @@ def capsule_main():  # pragma: no cover
 
     process_args(args)
     metadata = get_dataset_metadata(args)
-
     # Creating the API Client
     co_client = CodeOceanClient(domain=os.environ["CODEOCEAN_DOMAIN"], token=os.environ["CUSTOM_KEY"])
     # validate_s3_location(args, metadata)
