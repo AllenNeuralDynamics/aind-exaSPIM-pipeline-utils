@@ -17,7 +17,6 @@ from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.computations_requests import ComputationDataAsset
 import sys
 
-print(sys.path)
 from aind_trigger_codeocean.pipelines import CapsuleJob, RegisterAindData
 
 from ..exaspim_manifest import (
@@ -81,19 +80,19 @@ def get_dataset_metadata(args) -> dict:  # pragma: no cover
     for f in files:
         object_name = "/".join((args.input_dataset_prefix, f))
         # Try the input dataset
-        print(f"Downloading from bucket {args.input_dataset_bucket_name} : {object_name}")
+        logger.info(f"Downloading from bucket {args.input_dataset_bucket_name} : {object_name}")
         try:
             s3.download_file(args.input_dataset_bucket_name, object_name, f"../results/{f}")
         except botocore.exceptions.ClientError as e:
             if e.response['Error']['Code'] == "404":
                 # Try from the raw dataset
-                print(f"WARNING: Metadata file not found {f} in {args.input_dataset_prefix}")
+                logger.warning(f"Metadata file not found {f} in {args.input_dataset_prefix}")
                 object_name = "/".join((args.raw_dataset_prefix, f))
                 # Download the file from S3
-                print(f"Downloading from bucket {args.raw_dataset_bucket_name} : {object_name}")
+                logger.info(f"Downloading from bucket {args.raw_dataset_bucket_name} : {object_name}")
                 try:
                     s3.download_file(args.raw_dataset_bucket_name, object_name, f"../results/{f}")
-                    print(f"WARNING: Metadata file not found {f} in {args.raw_dataset_prefix}. Skipping")
+                    logger.warning(f"Metadata file not found {f} in {args.raw_dataset_prefix}. Skipping")
                 except botocore.exceptions.ClientError as e:
                     if e.response['Error']['Code'] == "404":
                         continue
@@ -109,7 +108,6 @@ def get_dataset_metadata(args) -> dict:  # pragma: no cover
         metadata['acquisition'] = metadata['exaSPIM_acquisition']
         del metadata['exaSPIM_acquisition']
 
-    print(metadata)
     return metadata
 
 
@@ -283,7 +281,7 @@ def register_manifest_as_CO_data_asset(args, co_client):  # pragma: no cover
                                               is_public_bucket=True)
 
     response_contents = data_asset_reg_response.json()
-    print(f"Created data asset in Code Ocean: {response_contents}")
+    logger.info(f"Created data asset in Code Ocean: {response_contents}")
 
     data_asset_id = response_contents["id"]
 
@@ -297,7 +295,7 @@ def start_pipeline(args, co_client, manifest_data_asset_id):  # pragma: no cover
     C = RegisterDataJob(configs={}, co_client=co_client)
     run_response = C.run_capsule(capsule_id=args.ij_capsule_id, data_assets=data_assets)
 
-    print(f"Run response: {run_response.json()}")
+    logger.info(f"Run response: {run_response.json()}")
     time.sleep(5)
 
 
@@ -320,12 +318,12 @@ def run_xml_capsule(args, co_client, input_data_asset_id):  # pragma: no cover
     result = result_response.json()
     if result_response.status_code != 200 or 'url' not in result:
         raise RuntimeError("Cannot get xml capsule result")
-    print(f"Result query response: {result}")
+    logger.info(f"Result query response: {result}")
     urllib.request.urlretrieve(result['url'], "../results/dataset.xml")
     # Upload
     s3 = boto3.client("s3")  # Authentication should be available in the environment
     object_name = "/".join((args.manifest_path, "dataset.xml"))
-    print(f"Uploading to bucket {args.manifest_bucket_name} : {object_name}")
+    logger.info(f"Uploading to bucket {args.manifest_bucket_name} : {object_name}")
     s3.upload_file("../results/dataset.xml", args.manifest_bucket_name, object_name)
 
 
@@ -337,7 +335,7 @@ def start_ij_capsule(args, co_client, raw_data_asset_id, manifest_data_asset_id)
         ComputationDataAsset(id=manifest_data_asset_id, mount="manifest"),
     ]
 
-    print("Starting IJ wrapper capsule")
+    logger.info("Starting IJ wrapper capsule")
     C = RegisterDataJob(configs={}, co_client=co_client)
     run_response = C.run_capsule(
         capsule_id=args.ij_capsule_id,
@@ -355,7 +353,7 @@ def get_channel_name(metadata: dict):  # pragma: no cover
         acq = metadata['acquisition']
         ch_name = acq["tiles"][0]["channel"]["channel_name"]
     else:
-        print("Warning: Cannot get channel name, defaults to ch488")
+        logger.warning("Cannot get channel name, defaults to ch488")
         ch_name = "ch488"
     return ch_name
 
@@ -408,7 +406,7 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
     n5_to_zarr: N5toZarrParameters = N5toZarrParameters(
         voxel_size_zyx=(1.0, 0.748, 0.748),
         input_uri=f"s3://{args.raw_dataset_bucket_name}/{args.raw_dataset_prefix}"
-                  f"_fusion_{args.fname_timestamp}/fused.n5/{ch_name}/",
+                  f"_fusion_{args.fname_timestamp}/fused.n5/ch{ch_name}/",
         output_uri=f"s3://{args.raw_dataset_bucket_name}/{args.raw_dataset_prefix}"
                    f"_fusion_{args.fname_timestamp}/fused.zarr/",
     )
@@ -438,7 +436,7 @@ def upload_manifest(args, manifest: ExaspimProcessingPipeline):  # pragma: no co
     object_name = "/".join((args.manifest_path, "exaspim_manifest.json"))
     with open("../results/exaspim_manifest.json", "w") as f:
         f.write(manifest.json(indent=4))
-    print(f"Uploading manifest to bucket {args.manifest_bucket_name} : {object_name}")
+    logger.info(f"Uploading manifest to bucket {args.manifest_bucket_name} : {object_name}")
     s3.upload_file("../results/exaspim_manifest.json", args.manifest_bucket_name, object_name)
 
 
