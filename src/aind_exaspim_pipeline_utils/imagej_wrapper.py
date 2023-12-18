@@ -341,7 +341,7 @@ def main():  # pragma: no cover
 
 def get_imagej_wrapper_metadata(parameters: dict):  # pragma: no cover
     """Initiate metadata instance with current timestamp and configuration."""
-    t = datetime.datetime.utcnow()
+    t = datetime.datetime.now()
     dp = DataProcess(
         name=ProcessName.IMAGE_TILE_ALIGNMENT,
         software_version="0.1.0",
@@ -366,7 +366,7 @@ def set_metadata_done(meta: DataProcess) -> None:  # pragma: no cover
     meta: DataProcess
       Capsule metadata instance.
     """
-    t = datetime.datetime.utcnow()
+    t = datetime.datetime.now()
     meta.end_date_time = t
     meta.notes = "DONE"
 

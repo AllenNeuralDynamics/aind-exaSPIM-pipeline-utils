@@ -259,7 +259,7 @@ def create_example_manifest(printit=True) -> ExaspimProcessingPipeline | None:  
     """
     processing_manifest_example = ExaspimProcessingPipeline(
         pipeline_suffix="2023-12-07_00-00-00",
-        creation_time=datetime.utcnow(),
+        creation_time=datetime.now(),
         n5_to_zarr=N5toZarrParameters(
             voxel_size_zyx=(1.0, 0.748, 0.748),
             input_uri="s3://aind-scratch-data/gabor.kovacs/2023-07-25_1653_BSS_fusion_653431/ch561/",

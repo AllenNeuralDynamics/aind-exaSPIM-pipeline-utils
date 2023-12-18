@@ -16,6 +16,7 @@ import botocore.exceptions
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.computations_requests import ComputationDataAsset
 import sys
+
 print(sys.path)
 from aind_trigger_codeocean.pipelines import CapsuleJob, RegisterAindData
 
@@ -78,15 +79,15 @@ def get_dataset_metadata(args) -> dict:  # pragma: no cover
     # acquisiton and exaSPIM_acquisition must be the last two
     files = ["data_description.json", "acquisition.json", "exaSPIM_acquisition.json"]
     for f in files:
-        object_name = "/".join((args.dataset_prefix, f))
+        object_name = "/".join((args.input_dataset_prefix, f))
         # Try the input dataset
-        print(f"Downloading from bucket {args.dataset_bucket_name} : {object_name}")
+        print(f"Downloading from bucket {args.input_dataset_bucket_name} : {object_name}")
         try:
-            s3.download_file(args.dataset_bucket_name, object_name, f"../results/{f}")
+            s3.download_file(args.input_dataset_bucket_name, object_name, f"../results/{f}")
         except botocore.exceptions.ClientError as e:
             if e.response['Error']['Code'] == "404":
                 # Try from the raw dataset
-                print(f"WARNING: Metadata file not found {f} in {args.dataset_prefix}")
+                print(f"WARNING: Metadata file not found {f} in {args.input_dataset_prefix}")
                 object_name = "/".join((args.raw_dataset_prefix, f))
                 # Download the file from S3
                 print(f"Downloading from bucket {args.raw_dataset_bucket_name} : {object_name}")
@@ -118,7 +119,7 @@ def get_dataset_metadata(args) -> dict:  # pragma: no cover
 #     lastproc: DataProcess = DataProcess.parse_obj(meta["processing"]["data_processes"][-1])
 #     meta_url = urlparse(lastproc.output_location)
 #
-#     if meta_url.netloc != args.dataset_bucket_name or meta_url.path.strip("/") != args.dataset_prefix:
+#     if meta_url.netloc != args.input_dataset_bucket_name or meta_url.path.strip("/") != args.input_dataset_prefix:
 #         raise ValueError("Output location of last DataProcess does not match with current dataset location")
 
 
@@ -218,14 +219,14 @@ def make_data_viewable(co_client: CodeOceanClient, data_asset_id: str):  # pragm
     print(f"Data asset viewable to everyone: {update_data_perm_response}")
 
 
-def register_raw_dataset_as_CO_data_asset(args, meta, co_client):  # pragma: no cover
+def register_input_dataset_as_CO_data_asset(args, meta, co_client):  # pragma: no cover
     """Register the dataset as a linked S3 data asset in CO"""
 
-    logger.info(f"Register dataset as a data asset in CO. {args.dataset_bucket_name} {args.dataset_name}")
+    logger.info(f"Register dataset as a data asset in CO. {args.input_dataset_bucket_name} {args.input_dataset_name}")
     # Register data asset
     data_configs = {
-        'prefix': args.dataset_name,
-        'bucket': args.dataset_bucket_name
+        'prefix': args.input_dataset_name,
+        'bucket': args.input_dataset_bucket_name
     }
 
     R = RegisterAindData(configs=data_configs, co_client=co_client, viewable_to_everyone=True, is_public_bucket=True)
@@ -236,8 +237,27 @@ def register_raw_dataset_as_CO_data_asset(args, meta, co_client):  # pragma: no 
     logger.info(f"Created data asset in Code Ocean: {response_contents}")
 
     data_asset_id = response_contents["id"]
-    # Making the created data asset available for everyone
-    # make_data_viewable(co_client, data_asset_id)
+
+    return data_asset_id
+
+def register_raw_dataset_as_CO_data_asset(args, meta, co_client):  # pragma: no cover
+    """Register the dataset as a linked S3 data asset in CO"""
+
+    logger.info(f"Register dataset as a data asset in CO. {args.raw_dataset_bucket_name} {args.raw_dataset_name}")
+    # Register data asset
+    data_configs = {
+        'prefix': args.raw_dataset_name,
+        'bucket': args.raw_dataset_bucket_name
+    }
+
+    R = RegisterAindData(configs=data_configs, co_client=co_client, viewable_to_everyone=True, is_public_bucket=True)
+    data_asset_reg_response = R.run_job()
+
+    print(data_asset_reg_response)
+    response_contents = data_asset_reg_response.json()
+    logger.info(f"Created data asset in Code Ocean: {response_contents}")
+
+    data_asset_id = response_contents["id"]
 
     return data_asset_id
 
@@ -258,14 +278,14 @@ def register_manifest_as_CO_data_asset(args, co_client):  # pragma: no cover
                                               mount="manifest",
                                               bucket=args.manifest_bucket_name,
                                               prefix=args.manifest_path,
-                                              tags=tags, )
+                                              tags=tags,
+                                              viewable_to_everyone=True,
+                                              is_public_bucket=True)
 
     response_contents = data_asset_reg_response.json()
     print(f"Created data asset in Code Ocean: {response_contents}")
 
     data_asset_id = response_contents["id"]
-    # Making the created data asset available for everyone
-    make_data_viewable(co_client, data_asset_id)
 
     return data_asset_id
 
@@ -281,15 +301,15 @@ def start_pipeline(args, co_client, manifest_data_asset_id):  # pragma: no cover
     time.sleep(5)
 
 
-def run_xml_capsule(args, co_client, raw_data_asset_id):  # pragma: no cover
+def run_xml_capsule(args, co_client, input_data_asset_id):  # pragma: no cover
     """Run the xml generator capsule.
 
-      * Attach the raw_data_asset_id as exaspim_dataset to the capsule
+      * Attach the input_data_asset_id as exaspim_dataset to the capsule
       * Run the capsule and waits for completion.
       * Download output.xml and upload it to the manifest location.
     """
     data_assets = [
-        ComputationDataAsset(id=raw_data_asset_id, mount="exaspim_dataset"),
+        ComputationDataAsset(id=input_data_asset_id, mount="exaspim_dataset"),
     ]
     C = RegisterDataJob(configs={}, co_client=co_client)
     run_response = C.run_capsule(capsule_id=args.xml_capsule_id, data_assets=data_assets, pause_interval=10)
@@ -387,15 +407,15 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
     # Even the flat-fielded fusions goes with the raw dataset prefix
     n5_to_zarr: N5toZarrParameters = N5toZarrParameters(
         voxel_size_zyx=(1.0, 0.748, 0.748),
-        input_uri=f"s3://{args.dataset_bucket_name}/{args.raw_dataset_prefix}"
+        input_uri=f"s3://{args.raw_dataset_bucket_name}/{args.raw_dataset_prefix}"
                   f"_fusion_{args.fname_timestamp}/fused.n5/{ch_name}/",
-        output_uri=f"s3://{args.dataset_bucket_name}/{args.raw_dataset_prefix}"
+        output_uri=f"s3://{args.raw_dataset_bucket_name}/{args.raw_dataset_prefix}"
                    f"_fusion_{args.fname_timestamp}/fused.zarr/",
     )
 
     zarr_multiscale: ZarrMultiscaleParameters = ZarrMultiscaleParameters(
         voxel_size_zyx=(1.0, 0.748, 0.748),
-        input_uri=f"s3://{args.dataset_bucket_name}/{args.raw_dataset_prefix}"
+        input_uri=f"s3://{args.raw_dataset_bucket_name}/{args.raw_dataset_prefix}"
                   f"_fusion_{args.fname_timestamp}/fused.zarr/",
     )
 
@@ -436,11 +456,11 @@ def process_args(args):  # pragma: no cover
 
     # Get raw dataset bucket and path
     url = urlparse(args.exaspim_data_uri)
-    args.dataset_bucket_name = url.netloc
+    args.input_dataset_bucket_name = url.netloc
     # Includes the last element and optionally other path elements
     # No slashes at the beginning and end
-    args.dataset_prefix = url.path.strip("/")
-    args.dataset_name = os.path.basename(args.dataset_prefix)  # Only the last entry as "name"
+    args.input_dataset_prefix = url.path.strip("/")
+    args.input_dataset_name = os.path.basename(args.input_dataset_prefix)  # Only the last entry as "name"
     if args.raw_data_uri:
         # There is a separate raw dataset given - this one is flat-fielded
         url = urlparse(args.raw_data_uri)
@@ -449,9 +469,9 @@ def process_args(args):  # pragma: no cover
         args.raw_dataset_name = os.path.basename(args.raw_dataset_prefix)  # Only the last entry as "name"
     else:
         # The input dataset is a raw dataset
-        args.raw_dataset_bucket_name = args.dataset_bucket_name
-        args.raw_dataset_prefix = args.dataset_prefix
-        args.raw_dataset_name = args.dataset_name
+        args.raw_dataset_bucket_name = args.input_dataset_bucket_name
+        args.raw_dataset_prefix = args.input_dataset_prefix
+        args.raw_dataset_name = args.input_dataset_name
     # Get manifest bucket and path and 'directory' name
     url = urlparse(args.manifest_output_prefix_uri)
     args.manifest_bucket_name = url.netloc
@@ -480,13 +500,15 @@ def capsule_main():  # pragma: no cover
     # Creating the API Client
     co_client = CodeOceanClient(domain=os.environ["CODEOCEAN_DOMAIN"], token=os.environ["CUSTOM_KEY"])
     # validate_s3_location(args, metadata)
-    raw_data_asset_id = register_raw_dataset_as_CO_data_asset(args, metadata, co_client)
+    input_data_asset_id = register_input_dataset_as_CO_data_asset(args, metadata, co_client)
+    if args.raw_data_uri:
+        register_raw_dataset_as_CO_data_asset(args, metadata, co_client)
     manifest = create_exaspim_manifest(args, metadata)
     upload_manifest(args, manifest)
 
     if args.xml_capsule_id:
-        run_xml_capsule(args, co_client, raw_data_asset_id)
-    # The XML also goes into this and have it indexed
+        run_xml_capsule(args, co_client, input_data_asset_id)
+    # The XML also goes into this and have it indexed by CO
     manifest_data_asset_id = register_manifest_as_CO_data_asset(args, co_client)
     if args.ij_capsule_id:
-        start_ij_capsule(args, co_client, raw_data_asset_id, manifest_data_asset_id)
+        start_ij_capsule(args, co_client, input_data_asset_id, manifest_data_asset_id)
