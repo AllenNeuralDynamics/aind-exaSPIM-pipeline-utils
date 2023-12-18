@@ -384,7 +384,7 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
     )
 
     ch_name = get_channel_name(metadata)
-    # TODO: Generate plausible URIs
+    # Even the flat-fielded fusions goes with the raw dataset prefix
     n5_to_zarr: N5toZarrParameters = N5toZarrParameters(
         voxel_size_zyx=(1.0, 0.748, 0.748),
         input_uri=f"s3://{args.dataset_bucket_name}/{args.raw_dataset_prefix}"
@@ -484,8 +484,9 @@ def capsule_main():  # pragma: no cover
     manifest = create_exaspim_manifest(args, metadata)
     upload_manifest(args, manifest)
 
-    manifest_data_asset_id = register_manifest_as_CO_data_asset(args, co_client)
     if args.xml_capsule_id:
         run_xml_capsule(args, co_client, raw_data_asset_id)
+    # The XML also goes into this and have it indexed
+    manifest_data_asset_id = register_manifest_as_CO_data_asset(args, co_client)
     if args.ij_capsule_id:
         start_ij_capsule(args, co_client, raw_data_asset_id, manifest_data_asset_id)
