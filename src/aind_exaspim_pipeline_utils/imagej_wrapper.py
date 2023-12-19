@@ -16,10 +16,12 @@ import argschema.fields as fld
 import marshmallow as mm
 import psutil
 import s3fs
-from aind_data_schema.core.processing import DataProcess, ProcessName
+from aind_data_schema.processing import DataProcess, ProcessName
 import xml.etree.ElementTree as ET
 #from aind_data_schema import DataProcess
 #from aind_data_schema.processing import ProcessName
+from .qc import bigstitcher_log_edge_analysis
+
 
 from . import __version__
 from .imagej_macros import ImagejMacros
@@ -400,6 +402,18 @@ def create_emr_ready_xml(args: dict):
     # write the xml file
     root.write(f"../results/{emr_xml_name}")
 
+def create_edge_connectivity_report():
+    """Create a report of edge connectivity failures."""
+    # Read the log file
+    with open("../results/output", "r") as f:
+        lines = f.readlines()
+    # Extract the tile pair numbers from failed RANSAC correspondence finding log messages
+    blocks = bigstitcher_log_edge_analysis.get_unfitted_tile_pairs(lines)
+    # Create a visualization of the failed edges
+    # Write the visualization to a file
+    with open("../results/edge_connectivity_report.txt", "w") as f:
+        bigstitcher_log_edge_analysis.print_visualization(blocks, file=f)
+
 def imagej_wrapper_main():  # pragma: no cover
     """Entry point with the manifest config."""
     logging.basicConfig(format="%(asctime)s %(levelname)-7s %(message)s")
@@ -492,6 +506,8 @@ def imagej_wrapper_main():  # pragma: no cover
 
     logger.info("Creating EMR ready xml from bigstitcher.xml")
     create_emr_ready_xml(args)
+    logger.info("Creating edge connectivity report")
+    create_edge_connectivity_report()
     logger.info("Uploading capsule results to {}".format(args["output_uri"]))
     upload_alignment_results(args)
     logger.info("Done.")

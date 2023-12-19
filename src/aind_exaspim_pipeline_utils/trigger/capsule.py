@@ -240,7 +240,10 @@ def register_input_dataset_as_CO_data_asset(args, meta, co_client):  # pragma: n
 
 
 def register_raw_dataset_as_CO_data_asset(args, meta, co_client):  # pragma: no cover
-    """Register the dataset as a linked S3 data asset in CO"""
+    """Register the raw dataset as a linked S3 data asset in CO.
+
+    The raw dataset is different from the input dataset if the input dataset is flat-fielded.
+    The alignment output inherits the raw dataset's timestamp."""
 
     logger.info(f"Register dataset as a data asset in CO. {args.raw_dataset_bucket_name} {args.raw_dataset_name}")
     # Register data asset
@@ -340,12 +343,12 @@ def start_ij_capsule(args, co_client, raw_data_asset_id, manifest_data_asset_id)
     C = RegisterDataJob(configs={}, co_client=co_client)
     run_response = C.run_capsule(
         capsule_id=args.ij_capsule_id,
-        data_assets=data_assets
+        data_assets=data_assets,
     )
     # Todo wait for results and register the run as a data asset with the timestamp
     # then upload to aind-open-data?
     run_response = run_response.json()
-    print(f"Run response: {run_response}")
+    logger.info(f"IJ capsule starting run response: {run_response}")
 
 
 def get_channel_name(metadata: dict):  # pragma: no cover
@@ -365,8 +368,7 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
     def_ij_wrapper_parameters: IJWrapperParameters = IJWrapperParameters(
         memgb=106, parallel=32,
         input_uri=args.exaspim_uri,
-        output_uri="s3://{}/{}_alignment_{}".format(
-            args.input_dataset_bucket_name, args.raw_dataset_prefix, args.fname_timestamp))
+        output_uri=args.alignment_output_uri)
 
     def_ip_detection_parameters: IPDetectionParameters = IPDetectionParameters(
         # dataset_xml=capsule_xml_path,  # For future S3 path
@@ -411,16 +413,13 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
     # Even the flat-fielded fusions goes with the raw dataset prefix
     n5_to_zarr: N5toZarrParameters = N5toZarrParameters(
         voxel_size_zyx=(1.0, 0.748, 0.748),
-        input_uri=f"s3://{args.raw_dataset_bucket_name}/{args.raw_dataset_prefix}"
-                  f"_fusion_{args.fname_timestamp}/fused.n5/ch{ch_name}/",
-        output_uri=f"s3://{args.raw_dataset_bucket_name}/{args.raw_dataset_prefix}"
-                   f"_fusion_{args.fname_timestamp}/fused.zarr/",
+        input_uri=f"s3://{args.fusion_output_bucket}/{args.fusion_output_prefix}/fused.n5/ch{ch_name}/",
+        output_uri=f"s3://{args.fusion_output_bucket}/{args.fusion_output_prefix}/fused.zarr/",
     )
 
     zarr_multiscale: ZarrMultiscaleParameters = ZarrMultiscaleParameters(
         voxel_size_zyx=(1.0, 0.748, 0.748),
-        input_uri=f"s3://{args.raw_dataset_bucket_name}/{args.raw_dataset_prefix}"
-                  f"_fusion_{args.fname_timestamp}/fused.zarr/",
+        input_uri=f"s3://{args.fusion_output_bucket}/{args.fusion_output_prefix}/fused.zarr/",
     )
 
     processing_manifest: ExaspimProcessingPipeline = ExaspimProcessingPipeline(
@@ -434,6 +433,20 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
     )
 
     return processing_manifest
+
+
+def create_and_upload_emr_config(args, metadata, manifest: ExaspimProcessingPipeline):  # pragma: no cover
+    """Create EMR command line parameters for the fusion of the present alignment run."""
+    ch_name = get_channel_name(metadata)
+    config = f"-x , {args.alignment_output_uri}/bigstitcher_emr_{manifest.name}_{manifest.pipeline_suffix}.xml,\n"\
+             f"--outS3Bucket,{args.fusion_output_bucket},-o,/{args.fusion_output_prefix}/fused.n5,\n"\
+             f"-d,/ch{ch_name}/s0,--storage,N5,--UINT16,--minIntensity=0,--maxIntensity=65535,--preserveAnisotropy\n"
+    with open("../results/emr_fusion_config.txt", "w") as f:
+        f.write(config)
+    logger.info("Uploading emr_fusion_config.txt to bucket {}".format(args.manifest_bucket_name))
+    s3 = boto3.client("s3")  # Authentication should be available in the environment
+    object_name = "/".join((args.manifest_path, "emr_fusion_config.txt"))
+    s3.upload_file("../results/emr_fusion_config.txt", args.manifest_bucket_name, object_name)
 
 
 def upload_manifest(args, manifest: ExaspimProcessingPipeline):  # pragma: no cover
@@ -462,14 +475,14 @@ def process_args(args):  # pragma: no cover
     url = urlparse(args.exaspim_data_uri)
     args.input_dataset_bucket_name = url.netloc
     # Includes the last element and optionally other path elements
-    # No slashes at the beginning and end
+    # No slashes at the beginning and end of prefixes
     args.input_dataset_prefix = url.path.strip("/")
     args.input_dataset_name = os.path.basename(args.input_dataset_prefix)  # Only the last entry as "name"
     if args.raw_data_uri:
-        # There is a separate raw dataset given - this one is flat-fielded
+        # There is a separate raw dataset given - the input dataset is flat-fielded
         url = urlparse(args.raw_data_uri)
         args.raw_dataset_bucket_name = url.netloc
-        args.raw_dataset_prefix = url.path.strip("/")
+        args.raw_dataset_prefix = url.path.strip("/")  # The path including the raw dataset name
         args.raw_dataset_name = os.path.basename(args.raw_dataset_prefix)  # Only the last entry as "name"
     else:
         # The input dataset is a raw dataset
@@ -483,6 +496,11 @@ def process_args(args):  # pragma: no cover
     # S3 "directory" path for uploading generated manifest file
     args.manifest_name = manifest_name
     args.manifest_path = url.path.strip("/") + "/" + manifest_name
+    # Alignment result upload location
+    args.alignment_output_uri = "s3://{}/{}_alignment_{}".format(
+        args.input_dataset_bucket_name, args.raw_dataset_prefix, args.fname_timestamp)
+    args.fusion_output_bucket = args.input_dataset_bucket_name
+    args.fusion_output_prefix = "{}_fusion_{}".format(args.raw_dataset_prefix, args.fname_timestamp)
 
 
 def capsule_main():  # pragma: no cover
@@ -500,6 +518,7 @@ def capsule_main():  # pragma: no cover
         )
 
     process_args(args)
+    logger.info("This is pipeline run {}".format(args.fname_timestamp))
     metadata = get_dataset_metadata(args)
     # Creating the API Client
     co_client = CodeOceanClient(domain=os.environ["CODEOCEAN_DOMAIN"], token=os.environ["CUSTOM_KEY"])
@@ -509,6 +528,7 @@ def capsule_main():  # pragma: no cover
         register_raw_dataset_as_CO_data_asset(args, metadata, co_client)
     manifest = create_exaspim_manifest(args, metadata)
     upload_manifest(args, manifest)
+    create_and_upload_emr_config(args, metadata, manifest)
 
     if args.xml_capsule_id:
         run_xml_capsule(args, co_client, input_data_asset_id)
