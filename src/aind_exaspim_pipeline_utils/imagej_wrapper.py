@@ -8,13 +8,16 @@ import shutil
 import subprocess
 import sys
 from typing import Dict, List, Union
+from urllib.parse import urlparse
 
 import argschema
 import argschema.fields as fld
 import marshmallow as mm
 import psutil
-from aind_data_schema import DataProcess
-from aind_data_schema.processing import ProcessName
+import s3fs
+from aind_data_schema.core.processing import DataProcess, ProcessName
+#from aind_data_schema import DataProcess
+#from aind_data_schema.processing import ProcessName
 
 from . import __version__
 from .imagej_macros import ImagejMacros
@@ -339,7 +342,8 @@ def main():  # pragma: no cover
     logger.info("Done.")
 
 
-def get_imagej_wrapper_metadata(parameters: dict):  # pragma: no cover
+def get_imagej_wrapper_metadata(parameters: dict, input_location: str = None,
+                                output_location: str = None):  # pragma: no cover
     """Initiate metadata instance with current timestamp and configuration."""
     t = datetime.datetime.now()
     dp = DataProcess(
@@ -347,8 +351,8 @@ def get_imagej_wrapper_metadata(parameters: dict):  # pragma: no cover
         software_version="0.1.0",
         start_date_time=t,
         end_date_time=t,
-        input_location="TBD",
-        output_location="TBD",
+        input_location=input_location,
+        output_location=output_location,
         code_url="https://github.com/AllenNeuralDynamics/aind-exaSPIM-pipeline-utils",
         code_version=__version__,
         parameters=parameters,
@@ -371,6 +375,15 @@ def set_metadata_done(meta: DataProcess) -> None:  # pragma: no cover
     meta.notes = "DONE"
 
 
+def upload_alignment_results(args):
+    """Upload the whole contents of the result folder to S3."""
+    # Set up the S3 file system
+    fs = s3fs.S3FileSystem()
+    url = urlparse(args["output_uri"])
+    if url.scheme != "s3":
+        raise NotImplementedError("Only s3 output_uri is supported, not {url.scheme}")
+    fs.put("../result", url.netloc + url.path, recursive=True, maxdepth= 1)
+
 def imagej_wrapper_main():  # pragma: no cover
     """Entry point with the manifest config."""
     logging.basicConfig(format="%(asctime)s %(levelname)-7s %(message)s")
@@ -383,11 +396,20 @@ def imagej_wrapper_main():  # pragma: no cover
         "session_id": pipeline_manifest.pipeline_suffix,
         "log_level": logging.DEBUG,
     }
+    if pipeline_manifest.ip_registrations:
+        args["output_uri"] = pipeline_manifest.ip_registrations[-1].IJwrap.output_uri
+        args["input_uri"] = pipeline_manifest.ip_registrations[-1].IJwrap.input_uri
+    else:
+        args["output_uri"] = pipeline_manifest.ip_detection.IJwrap.output_uri
+        args["input_uri"] = pipeline_manifest.ip_detection.IJwrap.input_uri
 
     logger.setLevel(logging.DEBUG)
     args.update(get_auto_parameters(args))
     process_meta = get_imagej_wrapper_metadata({'ip_detection': pipeline_manifest.ip_detection,
-                                                'ip_registrations': pipeline_manifest.ip_registrations})
+                                                'ip_registrations': pipeline_manifest.ip_registrations},
+                                               input_location=args["input_uri"],
+                                               output_location=args["output_uri"])
+
     write_process_metadata(process_meta, prefix="ipreg")
     ip_det_parameters = pipeline_manifest.ip_detection
     if ip_det_parameters is not None:
@@ -450,6 +472,9 @@ def imagej_wrapper_main():  # pragma: no cover
             if r != 0:
                 raise RuntimeError(f"IP registration {reg_index} command failed.")
             reg_index += 1
+
+    logger.info("Uploading capsule results to {}".format(args["output_uri"]))
+    upload_alignment_results(args)
     logger.info("Done.")
     set_metadata_done(process_meta)
     write_process_metadata(process_meta, prefix="ipreg")

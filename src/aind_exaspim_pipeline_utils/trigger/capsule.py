@@ -238,6 +238,7 @@ def register_input_dataset_as_CO_data_asset(args, meta, co_client):  # pragma: n
 
     return data_asset_id
 
+
 def register_raw_dataset_as_CO_data_asset(args, meta, co_client):  # pragma: no cover
     """Register the dataset as a linked S3 data asset in CO"""
 
@@ -361,7 +362,12 @@ def get_channel_name(metadata: dict):  # pragma: no cover
 def create_exaspim_manifest(args, metadata):  # pragma: no cover
     """Create exaspim manifest from the metadata that we have"""
     # capsule_xml_path = "../data/manifest/dataset.xml"
-    def_ij_wrapper_parameters: IJWrapperParameters = IJWrapperParameters(memgb=106, parallel=32)
+    def_ij_wrapper_parameters: IJWrapperParameters = IJWrapperParameters(
+        memgb=106, parallel=32,
+        input_uri=args.exaspim_uri,
+        output_uri="s3://{}/{}_alignment_{}".format(
+            args.input_dataset_bucket_name, args.raw_dataset_prefix, args.fname_timestamp))
+
     def_ip_detection_parameters: IPDetectionParameters = IPDetectionParameters(
         # dataset_xml=capsule_xml_path,  # For future S3 path
         IJwrap=def_ij_wrapper_parameters,

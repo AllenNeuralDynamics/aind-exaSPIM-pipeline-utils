@@ -68,6 +68,18 @@ class IJWrapperParameters(AindModel):  # pragma: no cover
     )
     parallel: int = Field(..., title="Number of parallel Java worker threads.", ge=1, lt=128)
 
+    input_uri: Optional[str] = Field(
+        None,
+        title="Input Zarr group dataset path. This is the dataset the alignment is running on."
+              "Must be the aind-open-data s3:// path",
+    )
+
+    output_uri: Optional[str] = Field(
+        None,
+        title="The capsule-s output location for the alignment dataset in s3:// "
+              "including the full name of the top-level output s3 folder",
+    )
+
 
 class IPDetectionParameters(AindModel):  # pragma: no cover
     """Interest point detection parameters"""
