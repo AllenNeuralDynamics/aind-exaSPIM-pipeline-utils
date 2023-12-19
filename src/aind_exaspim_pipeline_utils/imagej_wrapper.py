@@ -3,6 +3,7 @@ import datetime
 import json
 import logging
 import os
+import re
 import selectors
 import shutil
 import subprocess
@@ -16,6 +17,7 @@ import marshmallow as mm
 import psutil
 import s3fs
 from aind_data_schema.core.processing import DataProcess, ProcessName
+import xml.etree.ElementTree as ET
 #from aind_data_schema import DataProcess
 #from aind_data_schema.processing import ProcessName
 
@@ -248,8 +250,8 @@ def get_auto_parameters(args: Dict) -> Dict:
     if mem_GB < 10:
         raise ValueError("Too little memory available")
 
-    process_xml = "../results/bigstitcher_{session_id}.xml".format(**args)
-    macro_ip_det = "../results/macro_ip_det_{session_id}.ijm".format(**args)
+    process_xml = "../results/bigstitcher.xml"
+    macro_ip_det = "../results/macro_ip_det.ijm"
     return {
         "process_xml": process_xml,
         # Do not use, this is the whole VM at the moment, not what is available for the capsule
@@ -375,14 +377,28 @@ def set_metadata_done(meta: DataProcess) -> None:  # pragma: no cover
     meta.notes = "DONE"
 
 
-def upload_alignment_results(args):
+def upload_alignment_results(args: dict):
     """Upload the whole contents of the result folder to S3."""
     # Set up the S3 file system
     fs = s3fs.S3FileSystem()
     url = urlparse(args["output_uri"])
     if url.scheme != "s3":
         raise NotImplementedError("Only s3 output_uri is supported, not {url.scheme}")
-    fs.put("../result", url.netloc + url.path, recursive=True, maxdepth= 1)
+    fs.put("../results", url.netloc + url.path, recursive=True, maxdepth= 1)
+
+def create_emr_ready_xml(args: dict):
+    """Copy the solution xml into an EMR run ready version"""
+    emr_xml_name = "bigstitcher_emr_{}_{}.xml".format(args["name"], args["session_id"])
+    # read an xml file search for the zarr entry and replace it
+    root = ET.parse("../results/bigstitcher.xml").getroot()
+    imgloader=root.find("SequenceDescription/ImageLoader")
+    url = urlparse(args["input_uri"])
+    ET.SubElement(imgloader, "s3bucket").text = url.netloc
+    elem_zarr = imgloader.find("zarr")
+    # substitute regex pattern in the beginning of elem_zarr.text
+    elem_zarr.text = re.sub(r"^.*data", "", elem_zarr.text)
+    # write the xml file
+    root.write(f"../results/{emr_xml_name}")
 
 def imagej_wrapper_main():  # pragma: no cover
     """Entry point with the manifest config."""
@@ -395,6 +411,7 @@ def imagej_wrapper_main():  # pragma: no cover
         "dataset_xml": "../data/manifest/dataset.xml",
         "session_id": pipeline_manifest.pipeline_suffix,
         "log_level": logging.DEBUG,
+        "name": pipeline_manifest.name
     }
     if pipeline_manifest.ip_registrations:
         args["output_uri"] = pipeline_manifest.ip_registrations[-1].IJwrap.output_uri
@@ -473,6 +490,8 @@ def imagej_wrapper_main():  # pragma: no cover
                 raise RuntimeError(f"IP registration {reg_index} command failed.")
             reg_index += 1
 
+    logger.info("Creating EMR ready xml from bigstitcher.xml")
+    create_emr_ready_xml(args)
     logger.info("Uploading capsule results to {}".format(args["output_uri"]))
     upload_alignment_results(args)
     logger.info("Done.")
