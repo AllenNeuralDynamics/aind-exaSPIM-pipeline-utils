@@ -386,7 +386,7 @@ def upload_alignment_results(args: dict):
     url = urlparse(args["output_uri"])
     if url.scheme != "s3":
         raise NotImplementedError("Only s3 output_uri is supported, not {url.scheme}")
-    fs.put("../results", url.netloc + url.path, recursive=True, maxdepth= 1)
+    fs.put("../results", url.netloc + url.path + "/", recursive=True, maxdepth= 1)
 
 def create_emr_ready_xml(args: dict):
     """Copy the solution xml into an EMR run ready version"""
@@ -453,19 +453,20 @@ def imagej_wrapper_main():  # pragma: no cover
         logger.info("Creating macro %s", args["macro_ip_det"])
         with open(args["macro_ip_det"], "w") as f:
             f.write(ImagejMacros.get_macro_ip_det(det_params))
-        r = wrapper_cmd_run(
-            [
-                "ImageJ",
-                "-Dimagej.updater.disableAutocheck=true",
-                "--headless",
-                "--memory",
-                "{memgb}G".format(**det_params),
-                "--console",
-                "--run",
-                args["macro_ip_det"],
-            ],
-            logger,
-        )
+        r = 0
+        # r = wrapper_cmd_run(
+        #     [
+        #         "ImageJ",
+        #         "-Dimagej.updater.disableAutocheck=true",
+        #         "--headless",
+        #         "--memory",
+        #         "{memgb}G".format(**det_params),
+        #         "--console",
+        #         "--run",
+        #         args["macro_ip_det"],
+        #     ],
+        #     logger,
+        # )
         if r != 0:
             raise RuntimeError("IP detection command failed.")
     else:
@@ -487,19 +488,20 @@ def imagej_wrapper_main():  # pragma: no cover
             logger.info("Creating macro %s", macro_reg)
             with open(macro_reg, "w") as f:
                 f.write(ImagejMacros.get_macro_ip_reg(reg_params))
-            r = wrapper_cmd_run(
-                [
-                    "ImageJ",
-                    "-Dimagej.updater.disableAutocheck=true",
-                    "--headless",
-                    "--memory",
-                    "{memgb}G".format(**reg_params),
-                    "--console",
-                    "--run",
-                    macro_reg,
-                ],
-                logger,
-            )
+            r = 0
+            # r = wrapper_cmd_run(
+            #     [
+            #         "ImageJ",
+            #         "-Dimagej.updater.disableAutocheck=true",
+            #         "--headless",
+            #         "--memory",
+            #         "{memgb}G".format(**reg_params),
+            #         "--console",
+            #         "--run",
+            #         macro_reg,
+            #     ],
+            #     logger,
+            # )
             if r != 0:
                 raise RuntimeError(f"IP registration {reg_index} command failed.")
             reg_index += 1
