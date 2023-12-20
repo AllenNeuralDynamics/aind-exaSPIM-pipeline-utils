@@ -367,7 +367,7 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
     # capsule_xml_path = "../data/manifest/dataset.xml"
     def_ij_wrapper_parameters: IJWrapperParameters = IJWrapperParameters(
         memgb=106, parallel=32,
-        input_uri=args.exaspim_uri,
+        input_uri=args.exaspim_data_uri,
         output_uri=args.alignment_output_uri)
 
     def_ip_detection_parameters: IPDetectionParameters = IPDetectionParameters(
