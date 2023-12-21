@@ -112,6 +112,23 @@ def get_dataset_metadata(args) -> dict:  # pragma: no cover
         metadata['acquisition'] = metadata['exaSPIM_acquisition']
         del metadata['exaSPIM_acquisition']
 
+    # Validate subject_id
+    m = re.match(r'.*exaSPIM_(\w+)_\d{4}-\d{2}-\d{2}', args.input_dataset_prefix)
+    if m:
+        fname_subject_id = m.group(1)
+    if not metadata['subject']:
+        logger.warning("No subject metadata. Using file path pattern.")
+        metadata['subject'] = { 'subject_id': fname_subject_id }
+    else:
+        meta_subject_id = metadata['subject'].get('subject_id')
+        if not meta_subject_id:
+            logger.warning("Subject id is null in metadata. Using file path pattern.")
+            metadata['subject']['subject_id'] = fname_subject_id
+        else:
+            # We have an entry in the metadata
+            if meta_subject_id != fname_subject_id:
+                raise ValueError(f"The subject id in the metadata and in the file paths do not match. {meta_subject_id} != {fname_subject_id}")
+
     return metadata
 
 
@@ -443,7 +460,7 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
 def create_and_upload_emr_config(args, metadata, manifest: ExaspimProcessingPipeline):  # pragma: no cover
     """Create EMR command line parameters for the fusion of the present alignment run."""
     ch_name = get_channel_name(metadata)
-    config = f"-x , {args.alignment_output_uri}/bigstitcher_emr_{manifest.name}_{manifest.pipeline_suffix}.xml,\n"\
+    config = f"-x , {args.alignment_output_uri}/bigstitcher_emr_{manifest.subject_id}_{manifest.pipeline_suffix}.xml,\n"\
              f"--outS3Bucket,{args.fusion_output_bucket},-o,/{args.fusion_output_prefix}/fused.n5,\n"\
              f"-d,/ch{ch_name}/s0,--storage,N5,--UINT16,--minIntensity=0,--maxIntensity=65535,--preserveAnisotropy\n"
     with open("../results/emr_fusion_config.txt", "w") as f:

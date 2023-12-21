@@ -166,7 +166,7 @@ class ImageJWrapperSchema(argschema.ArgSchema):  # pragma: no cover
     )
 
 
-def wrapper_cmd_run(cmd: Union[str, List], logger: logging.Logger) -> int:
+def wrapper_cmd_run(cmd: Union[str, List], logger: logging.Logger, f_stdout=None, f_stderr=None) -> int:
     """Wrapper for a shell command.
 
     Wraps a shell command.
@@ -202,15 +202,23 @@ def wrapper_cmd_run(cmd: Union[str, List], logger: logging.Logger) -> int:
                     continue
                 if key.fileobj is p.stdout:
                     print(data, end="")
+                    if f_stdout:
+                        print(data, end="", file=f_stdout)
                 else:
                     print(data, end="", file=sys.stderr)
+                    if f_stderr:
+                        print(data, end="", file=f_stderr)
         # Ensure to process everything that may be left in the buffer
         data = p.stdout.read().decode()
         if data:
             print(data, end="")
+            if f_stdout:
+                print(data, end="", file=f_stdout)
         data = p.stderr.read().decode()
         if data:
             print(data, end="", file=sys.stderr)
+            if f_stderr:
+                print(data, end="", file=f_stderr)
     finally:
         p.stdout.close()
         p.stderr.close()
@@ -386,13 +394,14 @@ def upload_alignment_results(args: dict):
     url = urlparse(args["output_uri"])
     if url.scheme != "s3":
         raise NotImplementedError("Only s3 output_uri is supported, not {url.scheme}")
-    fs.put("../results", url.netloc + url.path + "/", recursive=True, maxdepth= 1)
+    fs.put("../results/", url.netloc + url.path + "/", recursive=True, maxdepth=10)  # Interestpoints.n5 have a bunch of subfolders
 
 def create_emr_ready_xml(args: dict):
     """Copy the solution xml into an EMR run ready version"""
     emr_xml_name = "bigstitcher_emr_{}_{}.xml".format(args["subject_id"], args["session_id"])
     # read an xml file search for the zarr entry and replace it
-    root = ET.parse("../results/bigstitcher.xml").getroot()
+    tree=ET.parse("../results/bigstitcher.xml")
+    root = tree.getroot()
     imgloader=root.find("SequenceDescription/ImageLoader")
     url = urlparse(args["input_uri"])
     ET.SubElement(imgloader, "s3bucket").text = url.netloc
@@ -400,22 +409,25 @@ def create_emr_ready_xml(args: dict):
     # substitute regex pattern in the beginning of elem_zarr.text
     elem_zarr.text = re.sub(r"^.*data", "", elem_zarr.text)
     # write the xml file
-    root.write(f"../results/{emr_xml_name}")
+    tree.write(f"../results/{emr_xml_name}")
 
-def create_edge_connectivity_report():
+def create_edge_connectivity_report(num_registrations: int) -> None:
     """Create a report of edge connectivity failures."""
     # Read the log file
-    with open("../results/output", "r") as f:
-        lines = f.readlines()
-    # Extract the tile pair numbers from failed RANSAC correspondence finding log messages
-    blocks = bigstitcher_log_edge_analysis.get_unfitted_tile_pairs(lines)
-    # Create a visualization of the failed edges
-    # Write the visualization to a file
-    with open("../results/edge_connectivity_report.txt", "w") as f:
-        bigstitcher_log_edge_analysis.print_visualization(blocks, file=f)
+    with open("../results/edge_connectivity_report.txt", "w") as f_report:
+        for i in range(num_registrations):
+            print(f"Edge dis-connectivity in registration round {i}:", file=f_report)
+            with open(f"../results/ip_registration{i:d}.log", "r") as f:
+                lines = f.readlines()
+            # Extract the tile pair numbers from failed RANSAC correspondence finding log messages
+            blocks = bigstitcher_log_edge_analysis.get_unfitted_tile_pairs(lines)
+            # Create a visualization of the failed edges
+            # Write the visualization to a file        
+            bigstitcher_log_edge_analysis.print_visualization(blocks, file=f_report)
 
 def imagej_wrapper_main():  # pragma: no cover
     """Entry point with the manifest config."""
+    # logging.basicConfig(format="%(asctime)s %(name)s %(levelname)-7s %(message)s")
     logging.basicConfig(format="%(asctime)s %(levelname)-7s %(message)s")
 
     logger = logging.getLogger()
@@ -436,6 +448,10 @@ def imagej_wrapper_main():  # pragma: no cover
         args["input_uri"] = pipeline_manifest.ip_detection.IJwrap.input_uri
 
     logger.setLevel(logging.DEBUG)
+    logging.getLogger("botocore").setLevel(logging.INFO)
+    logging.getLogger("urllib3").setLevel(logging.INFO)
+    logging.getLogger("s3fs").setLevel(logging.INFO)
+
     args.update(get_auto_parameters(args))
     process_meta = get_imagej_wrapper_metadata({'ip_detection': pipeline_manifest.ip_detection,
                                                 'ip_registrations': pipeline_manifest.ip_registrations},
@@ -454,22 +470,25 @@ def imagej_wrapper_main():  # pragma: no cover
         logger.info("Creating macro %s", args["macro_ip_det"])
         with open(args["macro_ip_det"], "w") as f:
             f.write(ImagejMacros.get_macro_ip_det(det_params))
-        r = 0
-        # r = wrapper_cmd_run(
-        #     [
-        #         "ImageJ",
-        #         "-Dimagej.updater.disableAutocheck=true",
-        #         "--headless",
-        #         "--memory",
-        #         "{memgb}G".format(**det_params),
-        #         "--console",
-        #         "--run",
-        #         args["macro_ip_det"],
-        #     ],
-        #     logger,
-        # )
-        if r != 0:
-            raise RuntimeError("IP detection command failed.")
+        with open("../results/ip_detection.log", "w") as f_out:
+            r = 0
+            # r = wrapper_cmd_run(
+            #     [
+            #         "ImageJ",
+            #         "-Dimagej.updater.disableAutocheck=true",
+            #         "--headless",
+            #         "--memory",
+            #         "{memgb}G".format(**det_params),
+            #         "--console",
+            #         "--run",
+            #         args["macro_ip_det"],
+            #     ],
+            #     logger,
+            #     f_stdout=f_out,
+            #     f_stderr=f_out
+            # )
+            if r != 0:
+                raise RuntimeError("IP detection command failed.")
     else:
         if pipeline_manifest.ip_registrations:
             # We assume that interest point detections are already present in the input dataset
@@ -489,20 +508,23 @@ def imagej_wrapper_main():  # pragma: no cover
             logger.info("Creating macro %s", macro_reg)
             with open(macro_reg, "w") as f:
                 f.write(ImagejMacros.get_macro_ip_reg(reg_params))
-            r = 0
-            # r = wrapper_cmd_run(
-            #     [
-            #         "ImageJ",
-            #         "-Dimagej.updater.disableAutocheck=true",
-            #         "--headless",
-            #         "--memory",
-            #         "{memgb}G".format(**reg_params),
-            #         "--console",
-            #         "--run",
-            #         macro_reg,
-            #     ],
-            #     logger,
-            # )
+            with open(f"../results/ip_registration{reg_index:d}.log", "w") as f_out:
+                r = 0
+                # r = wrapper_cmd_run(
+                #     [
+                #         "ImageJ",
+                #         "-Dimagej.updater.disableAutocheck=true",
+                #         "--headless",
+                #         "--memory",
+                #         "{memgb}G".format(**reg_params),
+                #         "--console",
+                #         "--run",
+                #         macro_reg,
+                #     ],
+                #     logger,
+                #     f_stdout=f_out,
+                #     f_stderr=f_out
+                # )
             if r != 0:
                 raise RuntimeError(f"IP registration {reg_index} command failed.")
             reg_index += 1
@@ -510,7 +532,7 @@ def imagej_wrapper_main():  # pragma: no cover
     logger.info("Creating EMR ready xml from bigstitcher.xml")
     create_emr_ready_xml(args)
     logger.info("Creating edge connectivity report")
-    create_edge_connectivity_report()
+    create_edge_connectivity_report(reg_index)
     logger.info("Uploading capsule results to {}".format(args["output_uri"]))
     upload_alignment_results(args)
     logger.info("Done.")

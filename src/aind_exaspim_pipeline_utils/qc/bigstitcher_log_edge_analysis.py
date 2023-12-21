@@ -92,7 +92,7 @@ def print_visualization(blocks, file=None):  # pragma: no cover
     """Print ascii visualization of edges for multiple blocks."""
 
     for i, pairs in enumerate(blocks):
-        print(f"Registration block {i + 1:1d}:", file=file)
+        print(f"Log block {i:1d}:", file=file)
         print("=====================", file=file)
         print(create_ascii_visualization(pairs), file=file)
         print(file=file)
