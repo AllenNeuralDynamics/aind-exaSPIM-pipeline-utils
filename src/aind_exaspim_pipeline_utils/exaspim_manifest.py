@@ -345,12 +345,13 @@ def write_result_dataset_metadata(dataset_metadata: dict) -> None:  # pragma: no
 
 def write_process_metadata(capsule_metadata: DataProcess, prefix=None) -> None:  # pragma: no cover
     """Write the process.json file about this processing step to the Code Ocean results folder."""
-    os.makedirs("../results/meta", exist_ok=True)
+    # os.makedirs("../results/meta", exist_ok=True)
     if prefix is None:
         prefix = ""
     else:
         prefix = prefix + "_"
-    with open(f"../results/meta/exaspim_{prefix}process.json", "w") as f:
+    # with open(f"../results/meta/exaspim_{prefix}process.json", "w") as f:
+    with open(f"../results/process_output.json", "w") as f:
         f.write(capsule_metadata.json(indent=3))
 
 
