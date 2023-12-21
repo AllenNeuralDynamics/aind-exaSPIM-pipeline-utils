@@ -242,6 +242,10 @@ class ExaspimProcessingPipeline(AindModel):  # pragma: no cover
         title="UTC Creation time of manifest",
     )
     pipeline_suffix: str = Field(..., title="Filename timestamp suffix")
+    subject_id : str = Field(None, title=
+        "The subject id in accordance with the folder names and metadata files")
+    
+    # In accordance with data_description. Which one is this for flat-fielded data?
     name: Optional[str] = Field(
         None,
         description="Name of data, conventionally also the name of "
@@ -269,9 +273,11 @@ def create_example_manifest(printit=True) -> ExaspimProcessingPipeline | None:  
     -------
     example_manifest: ExaspimManifest
     """
+    t = datetime.now()
     processing_manifest_example = ExaspimProcessingPipeline(
-        pipeline_suffix="2023-12-07_00-00-00",
-        creation_time=datetime.now(),
+        creation_time=t,
+        pipeline_suffix=t.strftime("%Y-%m-%d_%H-%M-%S"),
+        subject_id="000000",
         n5_to_zarr=N5toZarrParameters(
             voxel_size_zyx=(1.0, 0.748, 0.748),
             input_uri="s3://aind-scratch-data/gabor.kovacs/2023-07-25_1653_BSS_fusion_653431/ch561/",

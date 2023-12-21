@@ -390,7 +390,7 @@ def upload_alignment_results(args: dict):
 
 def create_emr_ready_xml(args: dict):
     """Copy the solution xml into an EMR run ready version"""
-    emr_xml_name = "bigstitcher_emr_{}_{}.xml".format(args["name"], args["session_id"])
+    emr_xml_name = "bigstitcher_emr_{}_{}.xml".format(args["subject_id"], args["session_id"])
     # read an xml file search for the zarr entry and replace it
     root = ET.parse("../results/bigstitcher.xml").getroot()
     imgloader=root.find("SequenceDescription/ImageLoader")
@@ -425,7 +425,8 @@ def imagej_wrapper_main():  # pragma: no cover
         "dataset_xml": "../data/manifest/dataset.xml",
         "session_id": pipeline_manifest.pipeline_suffix,
         "log_level": logging.DEBUG,
-        "name": pipeline_manifest.name
+        "name": pipeline_manifest.name,
+        "subject_id": pipeline_manifest.subject_id
     }
     if pipeline_manifest.ip_registrations:
         args["output_uri"] = pipeline_manifest.ip_registrations[-1].IJwrap.output_uri

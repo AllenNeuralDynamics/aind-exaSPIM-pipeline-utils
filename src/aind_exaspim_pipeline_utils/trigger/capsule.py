@@ -68,7 +68,7 @@ def parse_args() -> argparse.Namespace:  # pragma: no cover
 def get_dataset_metadata(args) -> dict:  # pragma: no cover
     """Get the metadata jsons of the exaspim dataset from S3.
 
-    Get `data_description` and `acquisition.json` from the data location.
+    Get `data_description`, `subject.json` and `acquisition.json` from the data location.
     """
 
     metadata = {}
@@ -76,7 +76,7 @@ def get_dataset_metadata(args) -> dict:  # pragma: no cover
     s3 = boto3.client("s3")  # Authentication should be available in the environment
 
     # acquisiton and exaSPIM_acquisition must be the last two
-    files = ["data_description.json", "acquisition.json", "exaSPIM_acquisition.json"]
+    files = ["data_description.json", "subject.json", "acquisition.json", "exaSPIM_acquisition.json"]
     for f in files:
         object_name = "/".join((args.input_dataset_prefix, f))
         # Try the input dataset
@@ -96,10 +96,14 @@ def get_dataset_metadata(args) -> dict:  # pragma: no cover
                 except botocore.exceptions.ClientError as e:
                     if e.response['Error']['Code'] == "404":
                         continue
+                    else:
+                        raise
         with open(f"../results/{f}", "r") as jfile:
             data = json.load(jfile)
             metadata[os.path.splitext(f)[0]] = data
 
+        # If acquisition is present in the input dataset,
+        # don't try the old name in the raw dataset
         if 'acquisition' in metadata:
             break
 
@@ -425,6 +429,7 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
     processing_manifest: ExaspimProcessingPipeline = ExaspimProcessingPipeline(
         creation_time=args.pipeline_timestamp,
         pipeline_suffix=args.fname_timestamp,
+        subject_id=metadata["subject"].get("subject_id"),
         name=metadata["data_description"].get("name"),
         ip_detection=def_ip_detection_parameters,
         ip_registrations=[ip_reg_translation, ip_reg_affine],
