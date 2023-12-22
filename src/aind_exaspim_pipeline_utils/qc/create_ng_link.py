@@ -54,7 +54,7 @@ def create_ng_link(dataset_uri: str, alignment_output_uri: str,
     output_json: str
         Path and file name to the Neuroglancer json file will be saved in the capsule.
     """
-
+    dataset_uri = dataset_uri.rstrip("/")
     # Never put trailing slashes
     # output_uri = 's3://aind-open-data/exaSPIM_659146_2023-11-10_14-02-06/SPIM.ome.zarr'
     # xml_path = '/root/capsule/data/2023-11-27_s18_th03_l150k_659146/bigstitcher_2023-11-27.xml'
@@ -139,7 +139,7 @@ def create_ng_link(dataset_uri: str, alignment_output_uri: str,
             {"url": url, "transform_matrix": final_transform.tolist()}
         )
 
-    ng_dir = os.path.dirname(output_json)
+    ng_dir, json_name = os.path.split(output_json)
     if ng_dir:
         os.makedirs(ng_dir, exist_ok=True)
     url = urlparse(dataset_uri)
@@ -152,10 +152,10 @@ def create_ng_link(dataset_uri: str, alignment_output_uri: str,
         input_config=input_config,
         mount_service="s3",
         bucket_path=bucket_name,
-        output_json=output_json,
+        output_json=ng_dir,
+        json_name=json_name,
     )
     neuroglancer_link.save_state_as_json()
     print(neuroglancer_link.get_url_link())
-    json_name = os.path.basename(output_json)
     with open("../results/ng/ng_link.txt", "a") as f:
         print(f"https://neuroglancer-demo.appspot.com/#!{alignment_output_uri}/ng/{json_name}", file=f)

@@ -407,10 +407,14 @@ def create_emr_ready_xml(args: dict):
     root = tree.getroot()
     imgloader = root.find("SequenceDescription/ImageLoader")
     url = urlparse(args["input_uri"])
-    ET.SubElement(imgloader, "s3bucket").text = url.netloc
+    s3b = ET.Element("s3bucket")
+    s3b.text = url.netloc
+    imgloader.insert(0, s3b)
+    # ET.SubElement(imgloader, "s3bucket").text = url.netloc
     elem_zarr = imgloader.find("zarr")
     # substitute regex pattern in the beginning of elem_zarr.text
-    elem_zarr.text = re.sub(r"^.*data", "", elem_zarr.text)
+    # elem_zarr.text = re.sub(r"^.*/data/", "", elem_zarr.text)
+    elem_zarr.text = "/"+ url.path.strip("/") + "/SPIM.ome.zarr"
     # write the xml file
     tree.write(f"../results/{emr_xml_name}")
 
