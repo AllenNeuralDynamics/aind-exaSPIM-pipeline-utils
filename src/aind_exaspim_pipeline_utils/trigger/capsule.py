@@ -365,11 +365,20 @@ def start_ij_capsule(args, co_client, raw_data_asset_id, manifest_data_asset_id)
     run_response = C.run_capsule(
         capsule_id=args.ij_capsule_id,
         data_assets=data_assets,
+        pause_interval=30,
+        timeout_seconds=3600 * 100,
     )
-    # Todo wait for results and register the run as a data asset with the timestamp
-    # then upload to aind-open-data?
-    run_response = run_response.json()
-    logger.info(f"IJ capsule starting run response: {run_response}")
+    logger.info("IJ capsule finished. Registering alignment dataset as a data asset in CO")
+    # Create data asset from the output_uri location
+    C.register_data(
+        asset_name=args.alignment_dataset_name,
+        mount=args.alignment_dataset_name,
+        bucket=args.input_dataset_bucket_name,
+        prefix=args.alignment_dataset_name,
+        tags=["exaspim", "alignment"],
+        viewable_to_everyone=True,
+        is_public_bucket=True
+    )
 
 
 def get_channel_name(metadata: dict):  # pragma: no cover
@@ -519,8 +528,9 @@ def process_args(args):  # pragma: no cover
     args.manifest_name = manifest_name
     args.manifest_path = url.path.strip("/") + "/" + manifest_name
     # Alignment result upload location
-    args.alignment_output_uri = "s3://{}/{}_alignment_{}".format(
-        args.input_dataset_bucket_name, args.raw_dataset_prefix, args.fname_timestamp)
+    args.alignment_dataset_name = "{}_alignment_{}".format(args.raw_dataset_name, args.fname_timestamp)
+    args.alignment_output_uri = "s3://{}/{}".format(
+        args.input_dataset_bucket_name, args.alignment_dataset_name)
     args.fusion_output_bucket = args.input_dataset_bucket_name
     args.fusion_output_prefix = "{}_fusion_{}".format(args.raw_dataset_prefix, args.fname_timestamp)
 

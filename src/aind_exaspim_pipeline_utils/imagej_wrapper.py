@@ -18,14 +18,15 @@ import psutil
 import s3fs
 from aind_data_schema.processing import DataProcess, ProcessName
 import xml.etree.ElementTree as ET
-#from aind_data_schema import DataProcess
-#from aind_data_schema.processing import ProcessName
-from .qc import bigstitcher_log_edge_analysis
+# from aind_data_schema import DataProcess
+# from aind_data_schema.processing import ProcessName
 
 
 from . import __version__
 from .imagej_macros import ImagejMacros
 from .exaspim_manifest import get_capsule_manifest, write_process_metadata
+from .qc import bigstitcher_log_edge_analysis
+from .qc.create_ng_link import create_ng_link
 
 
 class IPDetectionSchema(argschema.ArgSchema):  # pragma: no cover
@@ -394,15 +395,17 @@ def upload_alignment_results(args: dict):
     url = urlparse(args["output_uri"])
     if url.scheme != "s3":
         raise NotImplementedError("Only s3 output_uri is supported, not {url.scheme}")
-    fs.put("../results/", url.netloc + url.path + "/", recursive=True, maxdepth=10)  # Interestpoints.n5 have a bunch of subfolders
+    fs.put("../results/", url.netloc + url.path + "/", recursive=True,
+           maxdepth=10)  # Interestpoints.n5 have a bunch of subfolders
+
 
 def create_emr_ready_xml(args: dict):
     """Copy the solution xml into an EMR run ready version"""
     emr_xml_name = "bigstitcher_emr_{}_{}.xml".format(args["subject_id"], args["session_id"])
     # read an xml file search for the zarr entry and replace it
-    tree=ET.parse("../results/bigstitcher.xml")
+    tree = ET.parse("../results/bigstitcher.xml")
     root = tree.getroot()
-    imgloader=root.find("SequenceDescription/ImageLoader")
+    imgloader = root.find("SequenceDescription/ImageLoader")
     url = urlparse(args["input_uri"])
     ET.SubElement(imgloader, "s3bucket").text = url.netloc
     elem_zarr = imgloader.find("zarr")
@@ -410,6 +413,7 @@ def create_emr_ready_xml(args: dict):
     elem_zarr.text = re.sub(r"^.*data", "", elem_zarr.text)
     # write the xml file
     tree.write(f"../results/{emr_xml_name}")
+
 
 def create_edge_connectivity_report(num_registrations: int) -> None:
     """Create a report of edge connectivity failures."""
@@ -424,6 +428,7 @@ def create_edge_connectivity_report(num_registrations: int) -> None:
             # Create a visualization of the failed edges
             # Write the visualization to a file        
             bigstitcher_log_edge_analysis.print_visualization(blocks, file=f_report)
+
 
 def imagej_wrapper_main():  # pragma: no cover
     """Entry point with the manifest config."""
@@ -528,6 +533,18 @@ def imagej_wrapper_main():  # pragma: no cover
             if r != 0:
                 raise RuntimeError(f"IP registration {reg_index} command failed.")
             reg_index += 1
+
+        # Create ng links for all the registrations
+        for i in range(len(pipeline_manifest.ip_registrations)):
+            suffix = f"~{i}" if i > 0 else ""
+            xml_path = args["process_xml"] + suffix
+            if os.path.exists(xml_path):
+                logger.info("Creating ng link for registration %d", i)
+                create_ng_link(args["input_uri"], args["output_uri"],
+                               xml_path=xml_path,
+                               output_json=f"../results/ng/process_output_{i}.json")
+            else:
+                logger.warning("Registration %d xml file %s does not exist. Skipping.", i, xml_path)
 
     logger.info("Creating EMR ready xml from bigstitcher.xml")
     create_emr_ready_xml(args)

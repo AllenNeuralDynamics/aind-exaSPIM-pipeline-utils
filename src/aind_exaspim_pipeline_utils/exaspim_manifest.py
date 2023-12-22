@@ -68,12 +68,16 @@ class IJWrapperParameters(AindModel):  # pragma: no cover
     )
     parallel: int = Field(..., title="Number of parallel Java worker threads.", ge=1, lt=128)
 
+    # The IJ wrapper capsule does not read from this location until s3 support is fixed
+    # but uses in the bigstitcher_emr.xml output file as input location. Also
+    # propagated to the processing.json metadata file.
     input_uri: Optional[str] = Field(
         None,
         title="Input Zarr group dataset path. This is the dataset the alignment is running on."
               "Must be the aind-open-data s3:// path",
     )
 
+    # The IJ wrapper capsule uploads the CO results folder here as a data product.
     output_uri: Optional[str] = Field(
         None,
         title="The capsule-s output location for the alignment dataset in s3:// "
@@ -216,17 +220,19 @@ class IPRegistrationParameters(AindModel):  # pragma: no cover
 class XMLCreationParameters(AindModel):  # pragma: no cover
     """XML converter capsule parameters."""
 
-    input_uri: str = Field(
-        ...,
-        title="Top level s3 uri for input dataset.",
-    )
+    ch_name: str = Field(..., title="Channel name, without the ch prefix")
 
-    output_uri: str = Field(
-        ...,
-        title="Output Zarr dataset path. Must be a local filesystem path or "
-              "start with s3:// to trigger S3 direct access. "
-              "Must be different from the input_uri. Will be overwritten if exists.",
-    )
+    # input_uri: str = Field(
+    #     ...,
+    #     title="Top level s3 uri for input dataset.",
+    # )
+    #
+    # output_uri: str = Field(
+    #     ...,
+    #     title="Output Zarr dataset path. Must be a local filesystem path or "
+    #           "start with s3:// to trigger S3 direct access. "
+    #           "Must be different from the input_uri. Will be overwritten if exists.",
+    # )
 
 
 class ExaspimProcessingPipeline(AindModel):  # pragma: no cover
@@ -253,6 +259,7 @@ class ExaspimProcessingPipeline(AindModel):  # pragma: no cover
         title="Name",
     )
 
+    xml_creation: XMLCreationParameters = Field(None, title="XML creation")
     ip_detection: IPDetectionParameters = Field(None, title="Interest point detection")
     ip_registrations: List[IPRegistrationParameters] = Field(
         None, title="List of interest point registration steps."

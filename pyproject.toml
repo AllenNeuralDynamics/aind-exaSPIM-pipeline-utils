@@ -22,7 +22,8 @@ dependencies = [
     'pydantic',
     'psutil',
     'aind-data-schema',
-    'aind-codeocean-api'
+    'aind-codeocean-api',
+    'aind-ng-link',
 ]
 
 [project.optional-dependencies]
