@@ -14,7 +14,7 @@ from typing import Dict, List, Optional
 import requests
 
 # from aind_data_schema.core.data_description import DataLevel
-from aind_data_schema.data_description import DataLevel
+from aind_data_schema.core.data_description import DataLevel
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.computations_requests import (
     ComputationDataAsset, RunCapsuleRequest)

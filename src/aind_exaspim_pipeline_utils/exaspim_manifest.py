@@ -6,7 +6,8 @@ import os
 from datetime import datetime
 from typing import Optional, Tuple, Iterable, List
 
-from aind_data_schema import DataProcess, Metadata
+from aind_data_schema.core.processing import DataProcess
+from aind_data_schema.core.metadata import Metadata
 from aind_data_schema.base import AindModel
 from pydantic import Field, validator
 import argparse
@@ -240,8 +241,8 @@ class ExaspimProcessingPipeline(AindModel):  # pragma: no cover
 
     If a field is None, it is considered to be a disabled step."""
 
-    schema_version: str = Field("0.11.0", title="Schema Version", const=True)
-    license: str = Field("CC-BY-4.0", title="License", const=True)
+    # schema_version: str = Field("0.11.0", title="Schema Version", const=True)
+    # license: str = Field("CC-BY-4.0", title="License", const=True)
 
     creation_time: datetime = Field(
         ...,
