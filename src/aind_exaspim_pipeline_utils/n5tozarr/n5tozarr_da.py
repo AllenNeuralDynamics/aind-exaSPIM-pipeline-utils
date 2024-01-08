@@ -401,7 +401,7 @@ def get_zarr_multiscale_metadata(config: dict):  # pragma: no cover
 
 def get_n5tozarr_metadata(config: dict):  # pragma: no cover
     """Initiate metadata instance with current timestamp and configuration."""
-    t = datetime.datetime.utcnow()
+    t = datetime.datetime.now()
     dp = DataProcess(
         name=ProcessName.FILE_CONVERSION,
         software_version=config["capsule"]["version"],
@@ -426,7 +426,7 @@ def set_metadata_done(meta: DataProcess) -> None:  # pragma: no cover
     meta: DataProcess
       Capsule metadata instance.
     """
-    t = datetime.datetime.utcnow()
+    t = datetime.datetime.now()
     meta.end_date_time = t
     meta.notes = "DONE"
 

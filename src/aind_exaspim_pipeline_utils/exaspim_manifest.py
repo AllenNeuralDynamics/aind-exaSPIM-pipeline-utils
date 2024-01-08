@@ -29,14 +29,14 @@ class N5toZarrParameters(AindModel):  # pragma: no cover
     input_uri: str = Field(
         ...,
         title="Input N5 dataset path. Must be a local filesystem path or "
-              "start with s3:// to trigger S3 direct access.",
+        "start with s3:// to trigger S3 direct access.",
     )
 
     output_uri: str = Field(
         ...,
         title="Output Zarr dataset path. Must be a local filesystem path or "
-              "start with s3:// to trigger S3 direct access. "
-              "Must be different from the input_uri. Will be overwritten if exists.",
+        "start with s3:// to trigger S3 direct access. "
+        "Must be different from the input_uri. Will be overwritten if exists.",
     )
 
 
@@ -52,7 +52,7 @@ class ZarrMultiscaleParameters(AindModel):  # pragma: no cover
     input_uri: str = Field(
         ...,
         title="Input Zarr group dataset path. Must be a local filesystem path or "
-              "start with s3:// to trigger S3 direct access.",
+        "start with s3:// to trigger S3 direct access.",
     )
 
     output_uri: Optional[str] = Field(None, title="Output Zarr group dataset path if different from input.")
@@ -60,13 +60,30 @@ class ZarrMultiscaleParameters(AindModel):  # pragma: no cover
 
 class IJWrapperParameters(AindModel):  # pragma: no cover
     """ImageJ wrapper memory and parallelization runtime parameters"""
+
     memgb: int = Field(
         ...,
         title="Allowed JVM heap memory in GB."
-              " Should be about 0.8 GB x number of parallel threads less than total available.",
+        " Should be about 0.8 GB x number of parallel threads less than total available.",
         ge=16,
     )
     parallel: int = Field(..., title="Number of parallel Java worker threads.", ge=1, lt=128)
+
+    # The IJ wrapper capsule does not read from this location until s3 support is fixed
+    # but uses in the bigstitcher_emr.xml output file as input location. Also
+    # propagated to the processing.json metadata file.
+    input_uri: Optional[str] = Field(
+        None,
+        title="Input Zarr group dataset path. This is the dataset the alignment is running on."
+        "Must be the aind-open-data s3:// path",
+    )
+
+    # The IJ wrapper capsule uploads the CO results folder here as a data product.
+    output_uri: Optional[str] = Field(
+        None,
+        title="The capsule-s output location for the alignment dataset in s3:// "
+        "including the full name of the top-level output s3 folder",
+    )
 
 
 class IPDetectionParameters(AindModel):  # pragma: no cover
@@ -126,7 +143,10 @@ class IPRegistrationParameters(AindModel):  # pragma: no cover
     interest_point_inclusion_choice: str = Field(..., title="Which interest points to use ?")
     fix_views_choice: str = Field(..., title="Which views to fix ?")
     fixed_tile_ids: List[int] = Field(
-        [0, ], title="Setup ids of fixed tiles (fix_views_choice==select_fixed)."
+        [
+            0,
+        ],
+        title="Setup ids of fixed tiles (fix_views_choice==select_fixed).",
     )
     map_back_views_choice: str = Field(..., title="How to map back views?")
     map_back_reference_view: int = Field(0, title="Selected reference view for map back.")
@@ -204,17 +224,19 @@ class IPRegistrationParameters(AindModel):  # pragma: no cover
 class XMLCreationParameters(AindModel):  # pragma: no cover
     """XML converter capsule parameters."""
 
-    input_uri: str = Field(
-        ...,
-        title="Top level s3 uri for input dataset.",
-    )
+    ch_name: str = Field(..., title="Channel name, without the ch prefix")
 
-    output_uri: str = Field(
-        ...,
-        title="Output Zarr dataset path. Must be a local filesystem path or "
-              "start with s3:// to trigger S3 direct access. "
-              "Must be different from the input_uri. Will be overwritten if exists.",
-    )
+    # input_uri: str = Field(
+    #     ...,
+    #     title="Top level s3 uri for input dataset.",
+    # )
+    #
+    # output_uri: str = Field(
+    #     ...,
+    #     title="Output Zarr dataset path. Must be a local filesystem path or "
+    #           "start with s3:// to trigger S3 direct access. "
+    #           "Must be different from the input_uri. Will be overwritten if exists.",
+    # )
 
 
 class ExaspimProcessingPipeline(AindModel):  # pragma: no cover
@@ -230,13 +252,19 @@ class ExaspimProcessingPipeline(AindModel):  # pragma: no cover
         title="UTC Creation time of manifest",
     )
     pipeline_suffix: str = Field(..., title="Filename timestamp suffix")
+    subject_id: str = Field(
+        None, title="The subject id in accordance with the folder names and metadata files"
+    )
+
+    # In accordance with data_description. Which one is this for flat-fielded data?
     name: Optional[str] = Field(
         None,
         description="Name of data, conventionally also the name of "
-                    "the directory containing all data and metadata",
+        "the directory containing all data and metadata",
         title="Name",
     )
 
+    xml_creation: XMLCreationParameters = Field(None, title="XML creation")
     ip_detection: IPDetectionParameters = Field(None, title="Interest point detection")
     ip_registrations: List[IPRegistrationParameters] = Field(
         None, title="List of interest point registration steps."
@@ -257,9 +285,11 @@ def create_example_manifest(printit=True) -> ExaspimProcessingPipeline | None:  
     -------
     example_manifest: ExaspimManifest
     """
+    t = datetime.now()
     processing_manifest_example = ExaspimProcessingPipeline(
-        pipeline_suffix="2023-12-07_00-00-00",
-        creation_time=datetime.utcnow(),
+        creation_time=t,
+        pipeline_suffix=t.strftime("%Y-%m-%d_%H-%M-%S"),
+        subject_id="000000",
         n5_to_zarr=N5toZarrParameters(
             voxel_size_zyx=(1.0, 0.748, 0.748),
             input_uri="s3://aind-scratch-data/gabor.kovacs/2023-07-25_1653_BSS_fusion_653431/ch561/",
@@ -277,8 +307,9 @@ def create_example_manifest(printit=True) -> ExaspimProcessingPipeline | None:  
     return processing_manifest_example
 
 
-def get_capsule_manifest(args: Optional[argparse.Namespace] = None) \
-        -> ExaspimProcessingPipeline:  # pragma: no cover
+def get_capsule_manifest(
+    args: Optional[argparse.Namespace] = None,
+) -> ExaspimProcessingPipeline:  # pragma: no cover
     """Get the manifest file from its Code Ocean location or as given in the cmd-line argument.
 
     Raises
@@ -306,8 +337,9 @@ def get_capsule_metadata() -> dict:  # pragma: no cover
     return json_data
 
 
-def append_process_entries_to_metadata(dataset_metadata: Metadata, processes: Iterable[DataProcess]) \
-        -> None:   # pragma: no cover
+def append_process_entries_to_metadata(
+    dataset_metadata: Metadata, processes: Iterable[DataProcess]
+) -> None:  # pragma: no cover
     """Append the given process metadata entries to the dataset_metadata
 
     So long the pipeline is a linear sequence of steps, this should always be the
@@ -327,12 +359,13 @@ def write_result_dataset_metadata(dataset_metadata: dict) -> None:  # pragma: no
 
 def write_process_metadata(capsule_metadata: DataProcess, prefix=None) -> None:  # pragma: no cover
     """Write the process.json file about this processing step to the Code Ocean results folder."""
-    os.makedirs("../results/meta", exist_ok=True)
+    # os.makedirs("../results/meta", exist_ok=True)
     if prefix is None:
         prefix = ""
     else:
         prefix = prefix + "_"
-    with open(f"../results/meta/exaspim_{prefix}process.json", "w") as f:
+    # with open(f"../results/meta/exaspim_{prefix}process.json", "w") as f:
+    with open("../results/process_output.json", "w") as f:
         f.write(capsule_metadata.json(indent=3))
 
 

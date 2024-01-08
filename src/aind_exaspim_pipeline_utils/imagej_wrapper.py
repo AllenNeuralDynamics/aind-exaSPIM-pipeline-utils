@@ -8,17 +8,25 @@ import shutil
 import subprocess
 import sys
 from typing import Dict, List, Union
+from urllib.parse import urlparse
 
 import argschema
 import argschema.fields as fld
 import marshmallow as mm
 import psutil
-from aind_data_schema import DataProcess
-from aind_data_schema.processing import ProcessName
+import s3fs
+from aind_data_schema.processing import DataProcess, ProcessName
+import xml.etree.ElementTree as ET
+
+# from aind_data_schema import DataProcess
+# from aind_data_schema.processing import ProcessName
+
 
 from . import __version__
 from .imagej_macros import ImagejMacros
 from .exaspim_manifest import get_capsule_manifest, write_process_metadata
+from .qc import bigstitcher_log_edge_analysis
+from .qc.create_ng_link import create_ng_link
 
 
 class IPDetectionSchema(argschema.ArgSchema):  # pragma: no cover
@@ -159,7 +167,17 @@ class ImageJWrapperSchema(argschema.ArgSchema):  # pragma: no cover
     )
 
 
-def wrapper_cmd_run(cmd: Union[str, List], logger: logging.Logger) -> int:
+def print_output(data, f, stderr=False) -> None:  # pragma: no cover
+    """Print output to stdout or stderr and to a file if specified."""
+    if stderr:
+        print(data, end="", file=sys.stderr)
+    else:
+        print(data, end="")
+    if f:
+        print(data, end="", file=f)
+
+
+def wrapper_cmd_run(cmd: Union[str, List], logger: logging.Logger, f_stdout=None, f_stderr=None) -> int:
     """Wrapper for a shell command.
 
     Wraps a shell command.
@@ -194,16 +212,16 @@ def wrapper_cmd_run(cmd: Union[str, List], logger: logging.Logger) -> int:
                 if not data:
                     continue
                 if key.fileobj is p.stdout:
-                    print(data, end="")
+                    print_output(data, f_stdout, stderr=False)
                 else:
-                    print(data, end="", file=sys.stderr)
+                    print_output(data, f_stderr, stderr=True)
         # Ensure to process everything that may be left in the buffer
         data = p.stdout.read().decode()
         if data:
-            print(data, end="")
+            print_output(data, f_stdout, stderr=False)
         data = p.stderr.read().decode()
         if data:
-            print(data, end="", file=sys.stderr)
+            print_output(data, f_stderr, stderr=True)
     finally:
         p.stdout.close()
         p.stderr.close()
@@ -213,7 +231,7 @@ def wrapper_cmd_run(cmd: Union[str, List], logger: logging.Logger) -> int:
     return r
 
 
-def get_auto_parameters(args: Dict) -> Dict:
+def get_auto_parameters(args: Dict) -> Dict:  # pragma: no cover
     """Determine environment parameters.
 
     Determine number of cpus, imagej memory limit and imagej macro file names.
@@ -245,8 +263,8 @@ def get_auto_parameters(args: Dict) -> Dict:
     if mem_GB < 10:
         raise ValueError("Too little memory available")
 
-    process_xml = "../results/bigstitcher_{session_id}.xml".format(**args)
-    macro_ip_det = "../results/macro_ip_det_{session_id}.ijm".format(**args)
+    process_xml = "../results/bigstitcher.xml"
+    macro_ip_det = "../results/macro_ip_det.ijm"
     return {
         "process_xml": process_xml,
         # Do not use, this is the whole VM at the moment, not what is available for the capsule
@@ -339,16 +357,18 @@ def main():  # pragma: no cover
     logger.info("Done.")
 
 
-def get_imagej_wrapper_metadata(parameters: dict):  # pragma: no cover
+def get_imagej_wrapper_metadata(
+        parameters: dict, input_location: str = None, output_location: str = None
+):  # pragma: no cover
     """Initiate metadata instance with current timestamp and configuration."""
-    t = datetime.datetime.utcnow()
+    t = datetime.datetime.now()
     dp = DataProcess(
         name=ProcessName.IMAGE_TILE_ALIGNMENT,
         software_version="0.1.0",
         start_date_time=t,
         end_date_time=t,
-        input_location="TBD",
-        output_location="TBD",
+        input_location=input_location,
+        output_location=output_location,
         code_url="https://github.com/AllenNeuralDynamics/aind-exaSPIM-pipeline-utils",
         code_version=__version__,
         parameters=parameters,
@@ -366,13 +386,62 @@ def set_metadata_done(meta: DataProcess) -> None:  # pragma: no cover
     meta: DataProcess
       Capsule metadata instance.
     """
-    t = datetime.datetime.utcnow()
+    t = datetime.datetime.now()
     meta.end_date_time = t
     meta.notes = "DONE"
 
 
+def upload_alignment_results(args: dict):  # pragma: no cover
+    """Upload the whole contents of the result folder to S3."""
+    # Set up the S3 file system
+    fs = s3fs.S3FileSystem()
+    url = urlparse(args["output_uri"])
+    if url.scheme != "s3":
+        raise NotImplementedError("Only s3 output_uri is supported, not {url.scheme}")
+    fs.put(
+        "../results/", url.netloc + url.path + "/", recursive=True, maxdepth=10
+    )  # Interestpoints.n5 have a bunch of subfolders
+
+
+def create_emr_ready_xml(args: dict):  # pragma: no cover
+    """Copy the solution xml into an EMR run ready version"""
+    emr_xml_name = "bigstitcher_emr_{}_{}.xml".format(args["subject_id"], args["session_id"])
+    # read an xml file search for the zarr entry and replace it
+    # supposedly handles utf-8 by default
+    tree = ET.parse("../results/bigstitcher.xml")
+    root = tree.getroot()
+    imgloader = root.find("SequenceDescription/ImageLoader")
+    url = urlparse(args["input_uri"])
+    s3b = ET.Element("s3bucket")
+    s3b.text = url.netloc
+    imgloader.insert(0, s3b)
+    # ET.SubElement(imgloader, "s3bucket").text = url.netloc
+    elem_zarr = imgloader.find("zarr")
+    # substitute regex pattern in the beginning of elem_zarr.text
+    # elem_zarr.text = re.sub(r"^.*/data/", "", elem_zarr.text)
+    elem_zarr.text = "/" + url.path.strip("/") + "/SPIM.ome.zarr"
+    # write the xml file
+    tree.write(f"../results/{emr_xml_name}", encoding="utf-8")
+
+
+def create_edge_connectivity_report(num_registrations: int) -> None:  # pragma: no cover
+    """Create a report of edge connectivity failures."""
+    # Read the log file
+    with open("../results/edge_connectivity_report.txt", "w") as f_report:
+        for i in range(num_registrations):
+            print(f"Edge dis-connectivity in registration round {i}:", file=f_report)
+            with open(f"../results/ip_registration{i:d}.log", "r") as f:
+                lines = f.readlines()
+            # Extract the tile pair numbers from failed RANSAC correspondence finding log messages
+            blocks = bigstitcher_log_edge_analysis.get_unfitted_tile_pairs(lines)
+            # Create a visualization of the failed edges
+            # Write the visualization to a file
+            bigstitcher_log_edge_analysis.print_visualization(blocks, file=f_report)
+
+
 def imagej_wrapper_main():  # pragma: no cover
     """Entry point with the manifest config."""
+    # logging.basicConfig(format="%(asctime)s %(name)s %(levelname)-7s %(message)s")
     logging.basicConfig(format="%(asctime)s %(levelname)-7s %(message)s")
 
     logger = logging.getLogger()
@@ -382,12 +451,31 @@ def imagej_wrapper_main():  # pragma: no cover
         "dataset_xml": "../data/manifest/dataset.xml",
         "session_id": pipeline_manifest.pipeline_suffix,
         "log_level": logging.DEBUG,
+        "name": pipeline_manifest.name,
+        "subject_id": pipeline_manifest.subject_id,
     }
+    if pipeline_manifest.ip_registrations:
+        args["output_uri"] = pipeline_manifest.ip_registrations[-1].IJwrap.output_uri
+        args["input_uri"] = pipeline_manifest.ip_registrations[-1].IJwrap.input_uri
+    else:
+        args["output_uri"] = pipeline_manifest.ip_detection.IJwrap.output_uri
+        args["input_uri"] = pipeline_manifest.ip_detection.IJwrap.input_uri
 
     logger.setLevel(logging.DEBUG)
+    logging.getLogger("botocore").setLevel(logging.INFO)
+    logging.getLogger("urllib3").setLevel(logging.INFO)
+    logging.getLogger("s3fs").setLevel(logging.INFO)
+
     args.update(get_auto_parameters(args))
-    process_meta = get_imagej_wrapper_metadata({'ip_detection': pipeline_manifest.ip_detection,
-                                                'ip_registrations': pipeline_manifest.ip_registrations})
+    process_meta = get_imagej_wrapper_metadata(
+        {
+            "ip_detection": pipeline_manifest.ip_detection,
+            "ip_registrations": pipeline_manifest.ip_registrations,
+        },
+        input_location=args["input_uri"],
+        output_location=args["output_uri"],
+    )
+
     write_process_metadata(process_meta, prefix="ipreg")
     ip_det_parameters = pipeline_manifest.ip_detection
     if ip_det_parameters is not None:
@@ -400,21 +488,24 @@ def imagej_wrapper_main():  # pragma: no cover
         logger.info("Creating macro %s", args["macro_ip_det"])
         with open(args["macro_ip_det"], "w") as f:
             f.write(ImagejMacros.get_macro_ip_det(det_params))
-        r = wrapper_cmd_run(
-            [
-                "ImageJ",
-                "-Dimagej.updater.disableAutocheck=true",
-                "--headless",
-                "--memory",
-                "{memgb}G".format(**det_params),
-                "--console",
-                "--run",
-                args["macro_ip_det"],
-            ],
-            logger,
-        )
-        if r != 0:
-            raise RuntimeError("IP detection command failed.")
+        with open("../results/ip_detection.log", "w") as f_out:
+            r = wrapper_cmd_run(
+                [
+                    "ImageJ",
+                    "-Dimagej.updater.disableAutocheck=true",
+                    "--headless",
+                    "--memory",
+                    "{memgb}G".format(**det_params),
+                    "--console",
+                    "--run",
+                    args["macro_ip_det"],
+                ],
+                logger,
+                f_stdout=f_out,
+                f_stderr=f_out
+            )
+            if r != 0:
+                raise RuntimeError("IP detection command failed.")
     else:
         if pipeline_manifest.ip_registrations:
             # We assume that interest point detections are already present in the input dataset
@@ -434,22 +525,47 @@ def imagej_wrapper_main():  # pragma: no cover
             logger.info("Creating macro %s", macro_reg)
             with open(macro_reg, "w") as f:
                 f.write(ImagejMacros.get_macro_ip_reg(reg_params))
-            r = wrapper_cmd_run(
-                [
-                    "ImageJ",
-                    "-Dimagej.updater.disableAutocheck=true",
-                    "--headless",
-                    "--memory",
-                    "{memgb}G".format(**reg_params),
-                    "--console",
-                    "--run",
-                    macro_reg,
-                ],
-                logger,
-            )
+            with open(f"../results/ip_registration{reg_index:d}.log", "w") as f_out:
+                r = wrapper_cmd_run(
+                    [
+                        "ImageJ",
+                        "-Dimagej.updater.disableAutocheck=true",
+                        "--headless",
+                        "--memory",
+                        "{memgb}G".format(**reg_params),
+                        "--console",
+                        "--run",
+                        macro_reg,
+                    ],
+                    logger,
+                    f_stdout=f_out,
+                    f_stderr=f_out
+                )
             if r != 0:
                 raise RuntimeError(f"IP registration {reg_index} command failed.")
             reg_index += 1
+
+        # Create ng links for all the registrations
+        for i in range(len(pipeline_manifest.ip_registrations)):
+            suffix = f"~{i}" if i > 0 else ""
+            xml_path = args["process_xml"] + suffix
+            if os.path.exists(xml_path):
+                logger.info("Creating ng link for registration %d", i)
+                create_ng_link(
+                    args["input_uri"],
+                    args["output_uri"],
+                    xml_path=xml_path,
+                    output_json=f"../results/ng/process_output_{i}.json",
+                )
+            else:
+                logger.warning("Registration %d xml file %s does not exist. Skipping.", i, xml_path)
+
+    logger.info("Creating EMR ready xml from bigstitcher.xml")
+    create_emr_ready_xml(args)
+    logger.info("Creating edge connectivity report")
+    create_edge_connectivity_report(reg_index)
+    logger.info("Uploading capsule results to {}".format(args["output_uri"]))
+    upload_alignment_results(args)
     logger.info("Done.")
     set_metadata_done(process_meta)
     write_process_metadata(process_meta, prefix="ipreg")
