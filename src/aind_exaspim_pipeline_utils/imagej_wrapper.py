@@ -69,7 +69,7 @@ class IPDetectionSchema(argschema.ArgSchema):  # pragma: no cover
         load_default=0,
         metadata={
             "description": "If not equal to 0, the number of maximum IPs to detect."
-                           " Set ip_limitation_choice, too."
+            " Set ip_limitation_choice, too."
         },
     )
     ip_limitation_choice = fld.String(
@@ -142,7 +142,7 @@ class ImageJWrapperSchema(argschema.ArgSchema):  # pragma: no cover
         required=True,
         metadata={
             "description": "Allowed Java interpreter memory. "
-                           "Should be about 0.8 GB x number of parallel threads less than total available."
+            "Should be about 0.8 GB x number of parallel threads less than total available."
         },
     )
     parallel = fld.Int(
@@ -170,11 +170,11 @@ class ImageJWrapperSchema(argschema.ArgSchema):  # pragma: no cover
 def print_output(data, f, stderr=False) -> None:  # pragma: no cover
     """Print output to stdout or stderr and to a file if specified."""
     if stderr:
-        print(data, end="", file=sys.stderr)
+        print(data, end="", file=sys.stderr, flush=True)
     else:
-        print(data, end="")
+        print(data, end="", flush=True)
     if f:
-        print(data, end="", file=f)
+        print(data, end="", file=f, flush=True)
 
 
 def wrapper_cmd_run(cmd: Union[str, List], logger: logging.Logger, f_stdout=None, f_stderr=None) -> int:
@@ -200,10 +200,9 @@ def wrapper_cmd_run(cmd: Union[str, List], logger: logging.Logger, f_stdout=None
       Cmd return code.
     """
     logger.info("Starting command (%s)", str(cmd))
-    p = subprocess.Popen(cmd, bufsize=128, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-    sel = selectors.DefaultSelector()
-    try:
+    with selectors.DefaultSelector() as sel, subprocess.Popen(
+        cmd, bufsize=4096, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    ) as p:
         sel.register(p.stdout, selectors.EVENT_READ)
         sel.register(p.stderr, selectors.EVENT_READ)
         while p.poll() is None:  # pragma: no cover
@@ -216,17 +215,14 @@ def wrapper_cmd_run(cmd: Union[str, List], logger: logging.Logger, f_stdout=None
                 else:
                     print_output(data, f_stderr, stderr=True)
         # Ensure to process everything that may be left in the buffer
+        # This may be unnecessary, the process may not terminate until the pipes are at EOF
         data = p.stdout.read().decode()
         if data:
             print_output(data, f_stdout, stderr=False)
         data = p.stderr.read().decode()
         if data:
             print_output(data, f_stderr, stderr=True)
-    finally:
-        p.stdout.close()
-        p.stderr.close()
-        sel.close()
-    r = p.wait()
+        r = p.poll()
     logger.info("Command finished with return code %d", r)
     return r
 
@@ -269,7 +265,6 @@ def get_auto_parameters(args: Dict) -> Dict:  # pragma: no cover
         "process_xml": process_xml,
         # Do not use, this is the whole VM at the moment, not what is available for the capsule
         "auto_ncpu": ncpu,
-        # Do not use, this is the whole VM at the moment, not what is available for the capsule
         "auto_memgb": mem_GB,
         "macro_ip_det": macro_ip_det,
     }
@@ -358,7 +353,7 @@ def main():  # pragma: no cover
 
 
 def get_imagej_wrapper_metadata(
-        parameters: dict, input_location: str = None, output_location: str = None
+    parameters: dict, input_location: str = None, output_location: str = None
 ):  # pragma: no cover
     """Initiate metadata instance with current timestamp and configuration."""
     t = datetime.datetime.now()
@@ -502,7 +497,7 @@ def imagej_wrapper_main():  # pragma: no cover
                 ],
                 logger,
                 f_stdout=f_out,
-                f_stderr=f_out
+                f_stderr=f_out,
             )
             if r != 0:
                 raise RuntimeError("IP detection command failed.")
@@ -539,7 +534,7 @@ def imagej_wrapper_main():  # pragma: no cover
                     ],
                     logger,
                     f_stdout=f_out,
-                    f_stderr=f_out
+                    f_stderr=f_out,
                 )
             if r != 0:
                 raise RuntimeError(f"IP registration {reg_index} command failed.")
