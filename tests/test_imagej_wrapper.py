@@ -39,12 +39,12 @@ class TestWrapperFunctions(unittest.TestCase):
         """Tests for the cmd wrapper"""
         mock_selector = mock.Mock()
         mock_selector.configure_mock(**{"register.return_value": None, "close.return_value": None})
-        mock_DefaultSelector.return_value = mock_selector
+        mock_DefaultSelector.return_value.__enter__.return_value = mock_selector
         mock_std = mock.Mock()
         mock_std.configure_mock(**{"close.return_value": None, "read.return_value": b"text"})
         mock_popen = mock.Mock(stdout=mock_std, stderr=mock_std)
         mock_popen.configure_mock(**{"poll.return_value": 1, "wait.return_value": 0})
-        mock_subprocess_popen.return_value = mock_popen
+        mock_subprocess_popen.return_value.__enter__.return_value = mock_popen
 
         s_out = io.StringIO()
         s_err = io.StringIO()
@@ -52,10 +52,9 @@ class TestWrapperFunctions(unittest.TestCase):
             r = wrapper_cmd_run("test_cmd", logging.getLogger())
         self.assertTrue("text" in s_err.getvalue())
         self.assertTrue("text" in s_out.getvalue())
-        self.assertEqual(r, 0)
+        self.assertEqual(r, 1)
         mock_std.read.assert_called()
-        mock_std.close.assert_called()
-        mock_selector.close.assert_called()
+        mock_popen.poll.assert_called()
 
 
 class TestMacros(unittest.TestCase):

@@ -56,8 +56,8 @@ def parse_args() -> argparse.Namespace:  # pragma: no cover
     parser.add_argument(
         "--raw_data_uri",
         help="S3 URI Top-level location of input exaSPIM"
-             "dataset in aind-open-data if different from exaspim_data_uri "
-             "(ie. flat-fielded)",
+        "dataset in aind-open-data if different from exaspim_data_uri "
+        "(ie. flat-fielded)",
     )
     parser.add_argument(
         "--manifest_output_prefix_uri", help="S3 prefix URI for processing manifest upload", required=True
@@ -65,7 +65,7 @@ def parse_args() -> argparse.Namespace:  # pragma: no cover
     parser.add_argument(
         "--pipeline_timestamp",
         help="Pipeline timestamp to be appended to folder names. "
-             "Defaults to current local time as YYYY-MM-DD_HH-MM-SS",
+        "Defaults to current local time as YYYY-MM-DD_HH-MM-SS",
     )
     parser.add_argument("--xml_capsule_id", help="XML converter capsule id. Runs it if present.")
     parser.add_argument("--ij_capsule_id", help="ImageJ wrapper capsule id. Starts it if present.")
@@ -158,10 +158,10 @@ def get_dataset_metadata(args) -> dict:  # pragma: no cover
 
 
 def wait_for_data_availability(
-        co_client,
-        data_asset_id: str,
-        timeout_seconds: int = 300,
-        pause_interval=10,
+    co_client,
+    data_asset_id: str,
+    timeout_seconds: int = 300,
+    pause_interval=10,
 ):  # pragma: no cover
     """
     There is a lag between when a register data request is made and when the
@@ -198,10 +198,10 @@ def wait_for_data_availability(
 
 
 def wait_for_compute_completion(
-        co_api,
-        compute_id: str,
-        timeout_seconds: int = 300,
-        pause_interval: int = 5,
+    co_api,
+    compute_id: str,
+    timeout_seconds: int = 300,
+    pause_interval: int = 5,
 ):  # pragma: no cover
     """
     Parameters
@@ -225,9 +225,9 @@ def wait_for_compute_completion(
             raise RuntimeError(f"Cannot get compute status {compute_id}")
         run_status = run_status.json()
         if (
-                run_status["state"] == "completed"
-                and run_status["has_results"]
-                and run_status["end_status"] == "succeeded"
+            run_status["state"] == "completed"
+            and run_status["has_results"]
+            and run_status["end_status"] == "succeeded"
         ):
             break
         print(f"Waiting loop {i_check}: {run_status}")
@@ -307,6 +307,7 @@ def register_raw_dataset_as_CO_data_asset(args, meta, co_client):  # pragma: no 
 
 class RegisterDataJob(CapsuleJob):  # pragma: no cover
     """Minimalistic object to run as a CapsuleJob"""
+
     def run_job(self):
         """An empty run_job method
 

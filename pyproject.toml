@@ -23,7 +23,7 @@ dependencies = [
     'psutil',
     'aind-data-schema',
     'aind-codeocean-api==0.3.0',
-    'aind-ng-link',
+    'aind-ng-link>=1.0.6',
 ]
 
 [project.optional-dependencies]
