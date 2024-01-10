@@ -386,7 +386,8 @@ def run_xml_capsule(args, co_client, input_data_asset_id, manifest_data_asset_id
 
 def start_ij_capsule(args, co_client, input_data_asset_id, manifest_data_asset_id):  # pragma: no cover
     """Start the IJ wrapper capsule."""
-    logger.info("Running IJ wrapper capsule")
+    logger.info("Running IJ capsule with dataset {} and manifest {}".format(
+        input_data_asset_id, manifest_data_asset_id))
     data_assets = [
         ComputationDataAsset(id=input_data_asset_id, mount="exaspim_dataset"),
         ComputationDataAsset(id=manifest_data_asset_id, mount="manifest"),
@@ -503,7 +504,7 @@ def create_and_upload_emr_config(args, metadata, manifest: ExaspimProcessingPipe
     """Create EMR command line parameters for the fusion of the present alignment run."""
     ch_name = get_channel_name(metadata)
     config = (
-        f"-x, {args.alignment_output_uri}/"
+        f"-x, {args.alignment_output_uri}"
         f"bigstitcher_emr_{manifest.subject_id}_{manifest.pipeline_suffix}.xml,\n"
         f"--outS3Bucket, {args.fusion_output_bucket}, -o, /{args.fusion_output_prefix}/fused.n5,\n"
         f"-d, /ch{ch_name}/s0, --storage, N5, --UINT16, --minIntensity=0, "
@@ -527,6 +528,23 @@ def upload_manifest(args, manifest: ExaspimProcessingPipeline):  # pragma: no co
     s3.upload_file("../results/exaspim_manifest.json", args.manifest_bucket_name, object_name)
 
 
+def fmt_uri(uri: str, trailing_slash=True) -> str:  # pragma: no cover
+    """Format the uri to be used as a folder name.
+
+    All multiple occurrence internal slashes are replaced to single ones.
+
+    Local paths can be relative or absolute, trailing slash will be added if missing.
+
+    S3 references formatted to pattern ``s3://bucket/path/``
+    """
+    p = urlparse(uri)
+    s1 = f"{p.scheme}:" if p.scheme else ""
+    s2 = f"//{p.netloc}" if p.netloc else ""
+    tslash = "/" if trailing_slash else ""
+    s3 = re.sub(r"/{2,}", r"/", p.path.rstrip("/"))
+    return s1 + s2 + s3 + tslash
+
+
 def process_args(args):  # pragma: no cover
     """Command line arguments processing"""
 
@@ -538,6 +556,7 @@ def process_args(args):  # pragma: no cover
 
     args.pipeline_timestamp = pipeline_timestamp
     args.fname_timestamp = get_fname_timestamp(pipeline_timestamp)
+    args.exaspim_data_uri = fmt_uri(args.exaspim_data_uri)
 
     # Get raw dataset bucket and path
     url = urlparse(args.exaspim_data_uri)
@@ -548,6 +567,7 @@ def process_args(args):  # pragma: no cover
     args.input_dataset_name = os.path.basename(args.input_dataset_prefix)  # Only the last entry as "name"
     if args.raw_data_uri:
         # There is a separate raw dataset given - the input dataset is flat-fielded
+        args.raw_data_uri = fmt_uri(args.raw_data_uri)
         url = urlparse(args.raw_data_uri)
         args.raw_dataset_bucket_name = url.netloc
         args.raw_dataset_prefix = url.path.strip("/")  # The path including the raw dataset name
@@ -566,7 +586,7 @@ def process_args(args):  # pragma: no cover
     args.manifest_path = url.path.strip("/") + "/" + manifest_name
     # Alignment result upload location
     args.alignment_dataset_name = "{}_alignment_{}".format(args.raw_dataset_name, args.fname_timestamp)
-    args.alignment_output_uri = "s3://{}/{}".format(
+    args.alignment_output_uri = "s3://{}/{}/".format(
         args.input_dataset_bucket_name, args.alignment_dataset_name
     )
     args.fusion_output_bucket = args.input_dataset_bucket_name
