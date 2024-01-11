@@ -3,6 +3,7 @@ import datetime
 import json
 import logging
 import os
+import re
 import selectors
 import shutil
 import subprocess
@@ -175,6 +176,23 @@ def print_output(data, f, stderr=False) -> None:  # pragma: no cover
         print(data, end="", flush=True)
     if f:
         print(data, end="", file=f, flush=True)
+
+
+def fmt_uri(uri: str, trailing_slash=True) -> str:  # pragma: no cover
+    """Format the uri to be used as a folder name.
+
+    All multiple occurrence internal slashes are replaced to single ones.
+
+    Local paths can be relative or absolute, trailing slash will be added if missing.
+
+    S3 references formatted to pattern ``s3://bucket/path/``
+    """
+    p = urlparse(uri)
+    s1 = f"{p.scheme}:" if p.scheme else ""
+    s2 = f"//{p.netloc}" if p.netloc else ""
+    tslash = "/" if trailing_slash else ""
+    s3 = re.sub(r"/{2,}", r"/", p.path.rstrip("/"))
+    return s1 + s2 + s3 + tslash
 
 
 def wrapper_cmd_run(cmd: Union[str, List], logger: logging.Logger, f_stdout=None, f_stderr=None) -> int:
@@ -394,7 +412,7 @@ def upload_alignment_results(args: dict):  # pragma: no cover
     if url.scheme != "s3":
         raise NotImplementedError("Only s3 output_uri is supported, not {url.scheme}")
     fs.put(
-        "../results/", url.netloc + url.path + "/", recursive=True, maxdepth=10
+        "../results/", url.netloc + url.path.rstrip("/") + "/", recursive=True, maxdepth=10
     )  # Interestpoints.n5 have a bunch of subfolders
 
 
@@ -449,12 +467,13 @@ def imagej_wrapper_main():  # pragma: no cover
         "name": pipeline_manifest.name,
         "subject_id": pipeline_manifest.subject_id,
     }
+    # "input_uri" and "output_uri" are formatted to have trailing slashes
     if pipeline_manifest.ip_registrations:
-        args["output_uri"] = pipeline_manifest.ip_registrations[-1].IJwrap.output_uri
-        args["input_uri"] = pipeline_manifest.ip_registrations[-1].IJwrap.input_uri
+        args["output_uri"] = fmt_uri(pipeline_manifest.ip_registrations[-1].IJwrap.output_uri)
+        args["input_uri"] = fmt_uri(pipeline_manifest.ip_registrations[-1].IJwrap.input_uri)
     else:
-        args["output_uri"] = pipeline_manifest.ip_detection.IJwrap.output_uri
-        args["input_uri"] = pipeline_manifest.ip_detection.IJwrap.input_uri
+        args["output_uri"] = fmt_uri(pipeline_manifest.ip_detection.IJwrap.output_uri)
+        args["input_uri"] = fmt_uri(pipeline_manifest.ip_detection.IJwrap.input_uri)
 
     logger.setLevel(logging.DEBUG)
     logging.getLogger("botocore").setLevel(logging.INFO)
@@ -547,8 +566,8 @@ def imagej_wrapper_main():  # pragma: no cover
             if os.path.exists(xml_path):
                 logger.info("Creating ng link for registration %d", i)
                 create_ng_link(
-                    args["input_uri"],
-                    args["output_uri"],
+                    "{}SPIM.ome.zarr".format(args["input_uri"]),
+                    args["output_uri"].rstrip("/"),
                     xml_path=xml_path,
                     output_json=f"../results/ng/process_output_{i}.json",
                 )
@@ -559,11 +578,11 @@ def imagej_wrapper_main():  # pragma: no cover
     create_emr_ready_xml(args)
     logger.info("Creating edge connectivity report")
     create_edge_connectivity_report(reg_index)
-    logger.info("Uploading capsule results to {}".format(args["output_uri"]))
-    upload_alignment_results(args)
-    logger.info("Done.")
+    logger.info("Setting processing metadata to done")
     set_metadata_done(process_meta)
     write_process_metadata(process_meta, prefix="ipreg")
+    logger.info("Uploading capsule results to {}".format(args["output_uri"]))
+    upload_alignment_results(args)
 
 
 if __name__ == "__main__":  # pragma: no cover
