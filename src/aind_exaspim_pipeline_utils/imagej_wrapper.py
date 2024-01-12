@@ -416,25 +416,26 @@ def upload_alignment_results(args: dict):  # pragma: no cover
     )  # Interestpoints.n5 have a bunch of subfolders
 
 
-def create_emr_ready_xml(args: dict):  # pragma: no cover
+def create_emr_ready_xml(args: dict, num_regs: int = 1):  # pragma: no cover
     """Copy the solution xml into an EMR run ready version"""
-    emr_xml_name = "bigstitcher_emr_{}_{}.xml".format(args["subject_id"], args["session_id"])
     # read an xml file search for the zarr entry and replace it
     # supposedly handles utf-8 by default
-    tree = ET.parse("../results/bigstitcher.xml")
-    root = tree.getroot()
-    imgloader = root.find("SequenceDescription/ImageLoader")
-    url = urlparse(args["input_uri"])
-    s3b = ET.Element("s3bucket")
-    s3b.text = url.netloc
-    imgloader.insert(0, s3b)
-    # ET.SubElement(imgloader, "s3bucket").text = url.netloc
-    elem_zarr = imgloader.find("zarr")
-    # substitute regex pattern in the beginning of elem_zarr.text
-    # elem_zarr.text = re.sub(r"^.*/data/", "", elem_zarr.text)
-    elem_zarr.text = "/" + url.path.strip("/") + "/SPIM.ome.zarr"
-    # write the xml file
-    tree.write(f"../results/{emr_xml_name}", encoding="utf-8")
+    for i in range(num_regs):
+        suffix = f"~{i}" if i > 0 else ""
+        tree = ET.parse(f"../results/bigstitcher{suffix}.xml")
+        emr_xml_name = "bigstitcher_emr_{}_{}{}.xml".format(args["subject_id"], args["session_id"], suffix)
+        root = tree.getroot()
+        imgloader = root.find("SequenceDescription/ImageLoader")
+        url = urlparse(args["input_uri"])
+        s3b = ET.Element("s3bucket")
+        s3b.text = url.netloc
+        imgloader.insert(0, s3b)
+        # ET.SubElement(imgloader, "s3bucket").text = url.netloc
+        elem_zarr = imgloader.find("zarr")
+        # substitute regex pattern in the beginning of elem_zarr.text
+        elem_zarr.text = "/" + url.path.strip("/") + "/SPIM.ome.zarr"
+        # write the xml file
+        tree.write(f"../results/{emr_xml_name}", encoding="utf-8")
 
 
 def create_edge_connectivity_report(num_registrations: int) -> None:  # pragma: no cover
@@ -442,7 +443,7 @@ def create_edge_connectivity_report(num_registrations: int) -> None:  # pragma: 
     # Read the log file
     with open("../results/edge_connectivity_report.txt", "w") as f_report:
         for i in range(num_registrations):
-            print(f"Edge dis-connectivity in registration round {i}:", file=f_report)
+            print(f"Edge dis-connectivity based on ip_registration{i:d}.log :", file=f_report)
             with open(f"../results/ip_registration{i:d}.log", "r") as f:
                 lines = f.readlines()
             # Extract the tile pair numbers from failed RANSAC correspondence finding log messages
@@ -560,7 +561,7 @@ def imagej_wrapper_main():  # pragma: no cover
             reg_index += 1
 
         # Create ng links for all the registrations
-        for i in range(len(pipeline_manifest.ip_registrations)):
+        for i in range(reg_index):
             suffix = f"~{i}" if i > 0 else ""
             xml_path = args["process_xml"] + suffix
             if os.path.exists(xml_path):
@@ -574,10 +575,11 @@ def imagej_wrapper_main():  # pragma: no cover
             else:
                 logger.warning("Registration %d xml file %s does not exist. Skipping.", i, xml_path)
 
-    logger.info("Creating EMR ready xml from bigstitcher.xml")
-    create_emr_ready_xml(args)
-    logger.info("Creating edge connectivity report")
-    create_edge_connectivity_report(reg_index)
+        logger.info("Creating EMR ready xml from bigstitcher.xml")
+        create_emr_ready_xml(args, num_regs=reg_index)
+        logger.info("Creating edge connectivity report")
+        create_edge_connectivity_report(reg_index)
+
     logger.info("Setting processing metadata to done")
     set_metadata_done(process_meta)
     write_process_metadata(process_meta, prefix="ipreg")
