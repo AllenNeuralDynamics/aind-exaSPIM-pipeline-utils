@@ -1,12 +1,13 @@
 """Trigger capsule actions"""
 
 import argparse
+import collections
 import datetime
 import logging
 import os
 import time
 import re
-from typing import Optional
+from typing import Optional, Union
 
 import boto3
 import json
@@ -56,8 +57,8 @@ def parse_args() -> argparse.Namespace:  # pragma: no cover
     parser.add_argument(
         "--raw_data_uri",
         help="S3 URI Top-level location of input exaSPIM"
-        "dataset in aind-open-data if different from exaspim_data_uri "
-        "(ie. flat-fielded)",
+             "dataset in aind-open-data if different from exaspim_data_uri "
+             "(ie. flat-fielded)",
     )
     parser.add_argument(
         "--manifest_output_prefix_uri", help="S3 prefix URI for processing manifest upload", required=True
@@ -65,8 +66,11 @@ def parse_args() -> argparse.Namespace:  # pragma: no cover
     parser.add_argument(
         "--pipeline_timestamp",
         help="Pipeline timestamp to be appended to folder names. "
-        "Defaults to current local time as YYYY-MM-DD_HH-MM-SS",
+             "Defaults to current local time as YYYY-MM-DD_HH-MM-SS",
     )
+    parser.add_argument("--template_manifest",
+                        help="Template manifest json file to override defaults.")
+
     parser.add_argument("--xml_capsule_id", help="XML converter capsule id. Runs it if present.")
     parser.add_argument("--ij_capsule_id", help="ImageJ wrapper capsule id. Starts it if present.")
     args = parser.parse_args()
@@ -74,7 +78,17 @@ def parse_args() -> argparse.Namespace:  # pragma: no cover
 
 
 def get_s3_file(bucket_name: str, object_name: str, local_file: str):  # pragma: no cover
-    """Download a file from S3"""
+    """Download a file from S3.
+
+    Raises
+    ------
+    With the exception of 404, all other exceptions are raised.
+
+    Returns
+    -------
+
+    Returns True if successful, False if not found.
+    """
     s3 = boto3.client("s3")  # Authentication should be available in the environment
     logger.info(f"Downloading from bucket {bucket_name} : {object_name}")
     try:
@@ -157,105 +171,6 @@ def get_dataset_metadata(args) -> dict:  # pragma: no cover
 #         "Output location of last DataProcess does not match with current dataset location")
 
 
-def wait_for_data_availability(
-    co_client,
-    data_asset_id: str,
-    timeout_seconds: int = 300,
-    pause_interval=10,
-):  # pragma: no cover
-    """
-    There is a lag between when a register data request is made and when the
-    data is available to be used in a capsule.
-    Parameters
-    ----------
-    data_asset_id : str
-    timeout_seconds : int
-        Roughly how long the method should check if the data is available.
-    pause_interval : int
-        How many seconds between when the backend is queried.
-
-    Returns
-    -------
-    requests.Response
-
-    """
-    num_of_checks = 0
-    break_flag = False
-    time.sleep(pause_interval)
-    response = co_client.get_data_asset(data_asset_id)
-
-    if ((pause_interval * num_of_checks) > timeout_seconds) or (response.status_code == 200):
-        break_flag = True
-    while not break_flag:
-        print("Data asset is not yet available")
-        print(response)
-        time.sleep(pause_interval)
-        response = co_client.get_data_asset(data_asset_id)
-        num_of_checks += 1
-        if ((pause_interval * num_of_checks) > timeout_seconds) or (response.status_code == 200):
-            break_flag = True
-    return response
-
-
-def wait_for_compute_completion(
-    co_api,
-    compute_id: str,
-    timeout_seconds: int = 300,
-    pause_interval: int = 5,
-):  # pragma: no cover
-    """
-    Parameters
-    ----------
-    data_asset_id : str
-    timeout_seconds : int
-        Roughly how long the method should check if the data is available.
-    pause_interval : int
-        How many seconds between when the backend is queried.
-
-    Returns
-    -------
-    run_status: dict
-        last run_status as json dict.
-
-    """
-    for i_check in range(timeout_seconds // pause_interval + 2):
-        time.sleep(pause_interval)
-        run_status = co_api.get_computation(compute_id)
-        if run_status.status_code != 200:
-            raise RuntimeError(f"Cannot get compute status {compute_id}")
-        run_status = run_status.json()
-        if (
-            run_status["state"] == "completed"
-            and run_status["has_results"]
-            and run_status["end_status"] == "succeeded"
-        ):
-            break
-        print(f"Waiting loop {i_check}: {run_status}")
-    else:
-        raise RuntimeError(f"Wait for {compute_id} timed out or ended unsuccessfully.")
-    return run_status
-
-
-def make_data_viewable(co_client: CodeOceanClient, data_asset_id: str):  # pragma: no cover
-    """
-    Makes a registered dataset viewable
-
-    Parameters
-    ----------
-    co_client: CodeOceanClient
-        Code ocean client
-
-    """
-    response_data_available = wait_for_data_availability(co_client, data_asset_id)
-
-    if response_data_available.status_code != 200:
-        raise FileNotFoundError(f"Unable to find: {data_asset_id}")
-
-    # Make data asset viewable to everyone
-    update_data_perm_response = co_client.update_permissions(data_asset_id=data_asset_id, everyone="viewer")
-    print(f"Data asset viewable to everyone: {update_data_perm_response}")
-
-
 def register_input_dataset_as_CO_data_asset(args, meta, co_client):  # pragma: no cover
     """Register the dataset as a linked S3 data asset in CO"""
 
@@ -277,6 +192,44 @@ def register_input_dataset_as_CO_data_asset(args, meta, co_client):  # pragma: n
     data_asset_id = response_contents["id"]
 
     return data_asset_id
+
+
+def register_or_get_dataset_as_CO_data_asset(dataset_name, dataset_bucket, dataset_prefix,
+                                             co_client):  # pragma: no cover
+    """Query the input dataset for existence and register it if not found.
+
+    At the moment the dataset_name and dataset_prefix are the same in aind-open-data.
+    """
+    query_response = co_client.search_data_assets(query=f"name:{dataset_name}")
+    if query_response.status_code != 200:
+        raise RuntimeError("Cannot query data assets")
+    query_response = query_response.json()
+    results = query_response["results"]
+    for r in results:
+        if r["name"] == dataset_name:
+            # Check that it points to the same bucket and prefix
+            sourceBucket = r.get("sourceBucket", {})
+            if sourceBucket.get("prefix") == dataset_prefix and \
+                    sourceBucket.get("bucket") == dataset_bucket:
+                logger.info(f"Found dataset {dataset_name} in CO as {r['id']}")
+                return r["id"]
+    # Not found, register
+    logger.info(
+        f"Register dataset as a data asset in CO. {dataset_bucket}:{dataset_name}"
+    )
+    # Register data asset
+    data_configs = {"prefix": dataset_prefix, "bucket": dataset_bucket}
+
+    R = RegisterAindData(
+        configs=data_configs, co_client=co_client, viewable_to_everyone=True, is_public_bucket=True
+    )
+    data_asset_reg_response = R.run_job()
+    if data_asset_reg_response.status_code != 200:
+        raise RuntimeError("Cannot register data asset")
+
+    response_contents = data_asset_reg_response.json()
+    logger.info(f"Created data asset {dataset_name} as {response_contents['id']}")
+    return response_contents["id"]
 
 
 def register_raw_dataset_as_CO_data_asset(args, meta, co_client):  # pragma: no cover
@@ -320,7 +273,7 @@ def register_manifest_as_CO_data_asset(args, co_client):  # pragma: no cover
     """Register the manifest as a linked S3 data asset in CO"""
     # TODO: Current metadata fails with schema validation
     # data_description: DataDescription = DataDescription.parse_obj(meta["data_description"])
-    tags = ["exaspim", "manifest"]
+    tags = ["exaSPIM", "manifest"]
 
     C = RegisterDataJob(configs={}, co_client=co_client)
     data_asset_reg_response = C.register_data(
@@ -407,7 +360,7 @@ def start_ij_capsule(args, co_client, input_data_asset_id, manifest_data_asset_i
         mount=args.alignment_dataset_name,
         bucket=args.input_dataset_bucket_name,
         prefix=args.alignment_dataset_name,
-        tags=["exaspim", "alignment"],
+        tags=["exaSPIM", "alignment"],
         viewable_to_everyone=True,
         is_public_bucket=True,
     )
@@ -424,8 +377,48 @@ def get_channel_name(metadata: dict):  # pragma: no cover
     return ch_name
 
 
+def recursive_assign_items(dst: Union[collections.abc.Mapping, list],
+                           key_dst: Union[str, int],
+                           src: Union[collections.abc.Mapping, list],
+                           key_src: Union[str, int]) -> None:  # pragma: no cover
+    """Recursively assign items between dictionaries or lists.
+
+
+    If src[key_src] is a dictionary, recursively assign items from src[key_src] to dst[key_dst].
+    dst[key_dst] must exist.
+
+    If src[key_src] is a list, assign all items recursively from src[key_src] to dst[key_dst].
+    dst[key_dst] must exist and must be a list of the same length as src[key_src].
+
+    For all other cases, dst[key_dst] = src[key_src] is executed.
+    """
+    if isinstance(src[key_src], collections.abc.Mapping):
+        dst[key_dst] = recursive_update_mapping(dst[key_dst], src[key_src])
+    elif isinstance(src[key_src], list):
+        dlist = dst[key_dst]
+        slist = src[key_src]
+        if len(dlist) != len(slist):
+            raise ValueError("List field lengths to assign do not match")
+        for i in range(len(slist)):
+            recursive_assign_items(dlist, i, slist, i)
+    else:
+        dst[key_dst] = src[key_src]
+
+
+def recursive_update_mapping(dst: collections.abc.Mapping,
+                             src: collections.abc.Mapping) -> collections.abc.Mapping:  # pragma: no cover
+    """Recursively update a dictionary-like object.
+
+    src contains items that will be overwritten in dst."""
+    for key in src:
+        recursive_assign_items(dst, key, src, key)
+    return dst
+
+
 def create_exaspim_manifest(args, metadata):  # pragma: no cover
-    """Create exaspim manifest from the metadata that we have"""
+    """Create exaspim manifest from the dataset metadata that we have.
+
+    If args.template_manifest is present, override the defaults with it."""
     # capsule_xml_path = "../data/manifest/dataset.xml"
     def_ij_wrapper_parameters: IJWrapperParameters = IJWrapperParameters(
         memgb=106, parallel=32, input_uri=args.exaspim_data_uri, output_uri=args.alignment_output_uri
@@ -496,6 +489,12 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
         n5_to_zarr=n5_to_zarr,
         zarr_multiscale=zarr_multiscale,
     )
+    if args.template_manifest:
+        logger.info(f"Overriding manifest entries from {args.template_manifest}")
+        with open(args.template_manifest, "r") as f:
+            template = json.load(f)
+        processing_manifest = ExaspimProcessingPipeline(**recursive_update_mapping(
+            processing_manifest.dict(), template))
 
     return processing_manifest
 
@@ -613,9 +612,14 @@ def capsule_main():  # pragma: no cover
     # Creating the API Client
     co_client = CodeOceanClient(domain=os.environ["CODEOCEAN_DOMAIN"], token=os.environ["CUSTOM_KEY"])
     # validate_s3_location(args, metadata)
-    input_data_asset_id = register_input_dataset_as_CO_data_asset(args, metadata, co_client)
-    if args.raw_data_uri:
-        register_raw_dataset_as_CO_data_asset(args, metadata, co_client)
+    input_data_asset_id = register_or_get_dataset_as_CO_data_asset(args.input_dataset_name,
+                                                                   args.input_dataset_bucket_name,
+                                                                   args.input_dataset_prefix, co_client)
+
+    if args.raw_data_uri and args.raw_dataset_prefix != args.input_dataset_prefix:
+        register_or_get_dataset_as_CO_data_asset(args.raw_dataset_name,
+                                                 args.raw_dataset_bucket_name,
+                                                 args.raw_dataset_prefix, co_client)
     manifest = create_exaspim_manifest(args, metadata)
     upload_manifest(args, manifest)
     create_and_upload_emr_config(args, metadata, manifest)
