@@ -25,7 +25,7 @@ import xml.etree.ElementTree as ET
 
 from . import __version__
 from .imagej_macros import ImagejMacros
-from .exaspim_manifest import get_capsule_manifest, write_process_metadata
+from .exaspim_manifest import get_capsule_manifest, write_process_metadata, ExaspimProcessingPipeline
 from .qc import bigstitcher_log_edge_analysis
 from .qc.create_ng_link import create_ng_link
 
@@ -70,7 +70,7 @@ class IPDetectionSchema(argschema.ArgSchema):  # pragma: no cover
         load_default=0,
         metadata={
             "description": "If not equal to 0, the number of maximum IPs to detect."
-            " Set ip_limitation_choice, too."
+                           " Set ip_limitation_choice, too."
         },
     )
     ip_limitation_choice = fld.String(
@@ -143,7 +143,7 @@ class ImageJWrapperSchema(argschema.ArgSchema):  # pragma: no cover
         required=True,
         metadata={
             "description": "Allowed Java interpreter memory. "
-            "Should be about 0.8 GB x number of parallel threads less than total available."
+                           "Should be about 0.8 GB x number of parallel threads less than total available."
         },
     )
     parallel = fld.Int(
@@ -219,7 +219,7 @@ def wrapper_cmd_run(cmd: Union[str, List], logger: logging.Logger, f_stdout=None
     """
     logger.info("Starting command (%s)", str(cmd))
     with selectors.DefaultSelector() as sel, subprocess.Popen(
-        cmd, bufsize=4096, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            cmd, bufsize=4096, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     ) as p:
         sel.register(p.stdout, selectors.EVENT_READ)
         sel.register(p.stderr, selectors.EVENT_READ)
@@ -371,8 +371,8 @@ def main():  # pragma: no cover
 
 
 def get_imagej_wrapper_metadata(
-    parameters: dict, input_location: str = None, output_location: str = None
-):  # pragma: no cover
+        parameters: dict, input_location: str = None, output_location: str = None
+) -> DataProcess:  # pragma: no cover
     """Initiate metadata instance with current timestamp and configuration."""
     t = datetime.datetime.now()
     dp = DataProcess(
@@ -417,20 +417,23 @@ def upload_alignment_results(args: dict):  # pragma: no cover
 
 
 def create_emr_ready_xml(args: dict, num_regs: int = 1):  # pragma: no cover
-    """Copy the solution xml into an EMR run ready version"""
+    """Copy the solution xml into an EMR run ready version.
+
+    We process one more xml than the number of registrations to have an emr xml
+    for the original placements, too.
+    """
     # read an xml file search for the zarr entry and replace it
     # supposedly handles utf-8 by default
-    for i in range(num_regs):
+    for i in range(num_regs + 1):
         suffix = f"~{i}" if i > 0 else ""
-        tree = ET.parse(f"../results/bigstitcher{suffix}.xml")
-        emr_xml_name = "bigstitcher_emr_{}_{}{}.xml".format(args["subject_id"], args["session_id"], suffix)
+        tree = ET.parse(args["process_xml"] + suffix)
+        emr_xml_name = "bigstitcher_emr_{}_{}_{}.xml".format(args["subject_id"], args["session_id"], i)
         root = tree.getroot()
         imgloader = root.find("SequenceDescription/ImageLoader")
         url = urlparse(args["input_uri"])
         s3b = ET.Element("s3bucket")
         s3b.text = url.netloc
         imgloader.insert(0, s3b)
-        # ET.SubElement(imgloader, "s3bucket").text = url.netloc
         elem_zarr = imgloader.find("zarr")
         # substitute regex pattern in the beginning of elem_zarr.text
         elem_zarr.text = "/" + url.path.strip("/") + "/SPIM.ome.zarr"
@@ -443,7 +446,7 @@ def create_edge_connectivity_report(num_registrations: int) -> None:  # pragma: 
     # Read the log file
     with open("../results/edge_connectivity_report.txt", "w") as f_report:
         for i in range(num_registrations):
-            print(f"Edge dis-connectivity based on ip_registration{i:d}.log :", file=f_report)
+            print(f"Edge dis-connectivity based on ip_registration{i:d}.log (running order):", file=f_report)
             with open(f"../results/ip_registration{i:d}.log", "r") as f:
                 lines = f.readlines()
             # Extract the tile pair numbers from failed RANSAC correspondence finding log messages
@@ -451,6 +454,70 @@ def create_edge_connectivity_report(num_registrations: int) -> None:  # pragma: 
             # Create a visualization of the failed edges
             # Write the visualization to a file
             bigstitcher_log_edge_analysis.print_visualization(blocks, file=f_report)
+
+
+def imagej_do_registrations(pipeline_manifest: ExaspimProcessingPipeline,
+                            args: dict, logger: logging.Logger,
+                            process_meta: DataProcess):  # pragma: no cover
+    """Do the registrations.
+
+    Do the registrations and create ng links for all the registrations and
+    the original placements."""
+    reg_index = 0
+    if pipeline_manifest.ip_registrations:
+        for ipreg_params in pipeline_manifest.ip_registrations:
+            macro_reg = f"../results/macro_ip_reg{reg_index:d}.ijm"
+            reg_params = ipreg_params.dict()
+            reg_params.update(ipreg_params.IJwrap.dict())
+            reg_params["process_xml"] = args["process_xml"]
+            logger.info("Creating macro %s", macro_reg)
+            with open(macro_reg, "w") as f:
+                f.write(ImagejMacros.get_macro_ip_reg(reg_params))
+            with open(f"../results/ip_registration{reg_index:d}.log", "w") as f_out:
+                r = wrapper_cmd_run(
+                    [
+                        "ImageJ",
+                        "-Dimagej.updater.disableAutocheck=true",
+                        "--headless",
+                        "--memory",
+                        "{memgb}G".format(**reg_params),
+                        "--console",
+                        "--run",
+                        macro_reg,
+                    ],
+                    logger,
+                    f_stdout=f_out,
+                    f_stderr=f_out,
+                )
+            if r != 0:
+                raise RuntimeError(f"IP registration {reg_index} command failed.")
+            reg_index += 1
+
+        # Create ng links for all the registrations
+        nglinks = []
+        for i in range(reg_index + 1):
+            suffix = f"~{i}" if i > 0 else ""
+            xml_path = args["process_xml"] + suffix
+            if os.path.exists(xml_path):
+                logger.info("Creating ng link for registration %d (xml order)", i)
+                thelink = create_ng_link(
+                    "{}SPIM.ome.zarr".format(args["input_uri"]),
+                    args["output_uri"].rstrip("/"),
+                    xml_path=xml_path,
+                    output_json=f"../results/ng/process_output_{i}.json",
+                )
+                if thelink:
+                    nglinks.append(thelink)
+            else:
+                logger.warning("Registration %d xml file %s does not exist. Skipping.", i, xml_path)
+        if process_meta.outputs is None:
+            process_meta.outputs = {}
+        if nglinks:
+            process_meta.outputs["ng_links"] = nglinks
+        logger.info("Creating edge connectivity report")
+        create_edge_connectivity_report(reg_index)
+    logger.info("Creating EMR ready xml from bigstitcher.xml")
+    create_emr_ready_xml(args, num_regs=reg_index)
 
 
 def imagej_wrapper_main():  # pragma: no cover
@@ -523,62 +590,16 @@ def imagej_wrapper_main():  # pragma: no cover
                 raise RuntimeError("IP detection command failed.")
     else:
         if pipeline_manifest.ip_registrations:
+            # At the moment we did not define an IP detection only dataset
             # We assume that interest point detections are already present in the input dataset
-            # in the folder of the xml dataset file
+            # in the folder of the xml dataset file (in the manifest folder)
             logger.info("Assume already detected interestpoints.")
             ip_src = os.path.join(os.path.dirname(args["dataset_xml"]), "interestpoints.n5")
             logger.info("Copying %s -> ../results/", ip_src)
             shutil.copytree(ip_src, "../results/interestpoints.n5", dirs_exist_ok=True)
 
-    if pipeline_manifest.ip_registrations:
-        reg_index = 0
-        for ipreg_params in pipeline_manifest.ip_registrations:
-            macro_reg = f"../results/macro_ip_reg{reg_index:d}.ijm"
-            reg_params = ipreg_params.dict()
-            reg_params.update(ipreg_params.IJwrap.dict())
-            reg_params["process_xml"] = args["process_xml"]
-            logger.info("Creating macro %s", macro_reg)
-            with open(macro_reg, "w") as f:
-                f.write(ImagejMacros.get_macro_ip_reg(reg_params))
-            with open(f"../results/ip_registration{reg_index:d}.log", "w") as f_out:
-                r = wrapper_cmd_run(
-                    [
-                        "ImageJ",
-                        "-Dimagej.updater.disableAutocheck=true",
-                        "--headless",
-                        "--memory",
-                        "{memgb}G".format(**reg_params),
-                        "--console",
-                        "--run",
-                        macro_reg,
-                    ],
-                    logger,
-                    f_stdout=f_out,
-                    f_stderr=f_out,
-                )
-            if r != 0:
-                raise RuntimeError(f"IP registration {reg_index} command failed.")
-            reg_index += 1
-
-        # Create ng links for all the registrations
-        for i in range(reg_index):
-            suffix = f"~{i}" if i > 0 else ""
-            xml_path = args["process_xml"] + suffix
-            if os.path.exists(xml_path):
-                logger.info("Creating ng link for registration %d", i)
-                create_ng_link(
-                    "{}SPIM.ome.zarr".format(args["input_uri"]),
-                    args["output_uri"].rstrip("/"),
-                    xml_path=xml_path,
-                    output_json=f"../results/ng/process_output_{i}.json",
-                )
-            else:
-                logger.warning("Registration %d xml file %s does not exist. Skipping.", i, xml_path)
-
-        logger.info("Creating EMR ready xml from bigstitcher.xml")
-        create_emr_ready_xml(args, num_regs=reg_index)
-        logger.info("Creating edge connectivity report")
-        create_edge_connectivity_report(reg_index)
+    # Separate function to keep overall complexity low
+    imagej_do_registrations(pipeline_manifest, args, logger, process_meta)
 
     logger.info("Setting processing metadata to done")
     set_metadata_done(process_meta)

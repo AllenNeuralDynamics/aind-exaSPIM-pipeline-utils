@@ -47,7 +47,7 @@ def create_ng_link(
     alignment_output_uri: str,
     xml_path: str = "../results/bigstitcher.xml",
     output_json: str = "../results/ng/process_output.json",
-):  # pragma: no cover
+) -> str:  # pragma: no cover
     """ "Create a Neuroglancer json file and link file for the given alignment solution.
 
     The link is appended to the file ../results/ng/ng_link.txt.
@@ -160,5 +160,7 @@ def create_ng_link(
     )
     neuroglancer_link.save_state_as_json()
     print(neuroglancer_link.get_url_link())
+    thelink = f"https://neuroglancer-demo.appspot.com/#!{alignment_output_uri}/ng/{json_name}"
     with open("../results/ng/ng_link.txt", "a") as f:
-        print(f"https://neuroglancer-demo.appspot.com/#!{alignment_output_uri}/ng/{json_name}", file=f)
+        print(thelink, file=f)
+    return thelink
