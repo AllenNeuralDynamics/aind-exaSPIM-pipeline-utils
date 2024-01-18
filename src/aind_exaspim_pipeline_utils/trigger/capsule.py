@@ -1,7 +1,7 @@
 """Trigger capsule actions"""
 
 import argparse
-import collections
+import collections.abc
 import datetime
 import logging
 import os
@@ -43,7 +43,10 @@ def get_fname_timestamp(stamp: Optional[datetime.datetime] = None) -> str:
 
 
 def parse_args() -> argparse.Namespace:  # pragma: no cover
-    """Command line arguments of the trigger capsule"""
+    """Command line arguments of the trigger capsule.
+
+    As we use CO "run" to specify these, all parameters can be empty string.
+    """
     parser = argparse.ArgumentParser(
         prog="run_trigger_capsule",
         description="This program prepares the CO environment and launches the exaSPIM processing pipeline",
@@ -68,11 +71,13 @@ def parse_args() -> argparse.Namespace:  # pragma: no cover
         help="Pipeline timestamp to be appended to folder names. "
              "Defaults to current local time as YYYY-MM-DD_HH-MM-SS",
     )
-    parser.add_argument("--template_manifest",
-                        help="Template manifest json file to override defaults.")
+    parser.add_argument("--template_manifest", help="Template manifest json file to override defaults.")
 
     parser.add_argument("--xml_capsule_id", help="XML converter capsule id. Runs it if present.")
     parser.add_argument("--ij_capsule_id", help="ImageJ wrapper capsule id. Starts it if present.")
+    parser.add_argument("--channel",
+                        help="Channel name to process. Must be one of the wavelengths in the metadata. "
+                             "Without the 'ch' prefix.")
     args = parser.parse_args()
     return args
 
@@ -90,7 +95,7 @@ def get_s3_file(bucket_name: str, object_name: str, local_file: str):  # pragma:
     Returns True if successful, False if not found.
     """
     s3 = boto3.client("s3")  # Authentication should be available in the environment
-    logger.info(f"Downloading from bucket {bucket_name} : {object_name}")
+    logger.info(f"Downloading file s3://{bucket_name}/{object_name}")
     try:
         s3.download_file(bucket_name, object_name, local_file)
     except botocore.exceptions.ClientError as e:
@@ -107,11 +112,15 @@ def get_dataset_metadata(args) -> dict:  # pragma: no cover
     """Get the metadata jsons of the exaspim dataset from S3.
 
     Get `data_description`, `subject.json` and `acquisition.json` from the data location.
+
+    Collect the contents of the individual jsons into top level keys
+    like `acquisition` and `subject` and returns the dict.
     """
     metadata = {}
 
     # acquisiton and exaSPIM_acquisition must be the last two
     files = ["data_description.json", "subject.json", "acquisition.json", "exaSPIM_acquisition.json"]
+    logger.info("Reading metadata files from S3.")
     for f in files:
         object_name = "/".join((args.input_dataset_prefix, f))
         # Try the input dataset
@@ -140,6 +149,10 @@ def get_dataset_metadata(args) -> dict:  # pragma: no cover
     m = re.match(r".*exaSPIM_(\w+)_\d{4}-\d{2}-\d{2}", args.input_dataset_prefix)
     if m:
         fname_subject_id = m.group(1)
+    else:
+        raise ValueError("Cannot extract subject id from the input dataset prefix {}".format(
+            args.input_dataset_prefix))
+
     if not metadata["subject"]:
         logger.warning("No subject metadata. Using file path pattern.")
         metadata["subject"] = {"subject_id": fname_subject_id}
@@ -171,31 +184,9 @@ def get_dataset_metadata(args) -> dict:  # pragma: no cover
 #         "Output location of last DataProcess does not match with current dataset location")
 
 
-def register_input_dataset_as_CO_data_asset(args, meta, co_client):  # pragma: no cover
-    """Register the dataset as a linked S3 data asset in CO"""
-
-    logger.info(
-        f"Register dataset as a data asset in CO. {args.input_dataset_bucket_name} {args.input_dataset_name}"
-    )
-    # Register data asset
-    data_configs = {"prefix": args.input_dataset_name, "bucket": args.input_dataset_bucket_name}
-
-    R = RegisterAindData(
-        configs=data_configs, co_client=co_client, viewable_to_everyone=True, is_public_bucket=True
-    )
-    data_asset_reg_response = R.run_job()
-
-    print(data_asset_reg_response)
-    response_contents = data_asset_reg_response.json()
-    logger.info(f"Created data asset in Code Ocean: {response_contents}")
-
-    data_asset_id = response_contents["id"]
-
-    return data_asset_id
-
-
-def register_or_get_dataset_as_CO_data_asset(dataset_name, dataset_bucket, dataset_prefix,
-                                             co_client):  # pragma: no cover
+def register_or_get_dataset_as_CO_data_asset(
+        dataset_name, dataset_bucket, dataset_prefix, co_client
+):  # pragma: no cover
     """Query the input dataset for existence and register it if not found.
 
     At the moment the dataset_name and dataset_prefix are the same in aind-open-data.
@@ -209,14 +200,11 @@ def register_or_get_dataset_as_CO_data_asset(dataset_name, dataset_bucket, datas
         if r["name"] == dataset_name:
             # Check that it points to the same bucket and prefix
             sourceBucket = r.get("sourceBucket", {})
-            if sourceBucket.get("prefix") == dataset_prefix and \
-                    sourceBucket.get("bucket") == dataset_bucket:
+            if sourceBucket.get("prefix") == dataset_prefix and sourceBucket.get("bucket") == dataset_bucket:
                 logger.info(f"Found dataset {dataset_name} in CO as {r['id']}")
                 return r["id"]
     # Not found, register
-    logger.info(
-        f"Register dataset as a data asset in CO. {dataset_bucket}:{dataset_name}"
-    )
+    logger.info(f"Register dataset as a data asset in CO. {dataset_bucket}:{dataset_name}")
     # Register data asset
     data_configs = {"prefix": dataset_prefix, "bucket": dataset_bucket}
 
@@ -339,8 +327,11 @@ def run_xml_capsule(args, co_client, input_data_asset_id, manifest_data_asset_id
 
 def start_ij_capsule(args, co_client, input_data_asset_id, manifest_data_asset_id):  # pragma: no cover
     """Start the IJ wrapper capsule."""
-    logger.info("Running IJ capsule with dataset {} and manifest {}".format(
-        input_data_asset_id, manifest_data_asset_id))
+    logger.info(
+        "Running IJ capsule with dataset {} and manifest {}".format(
+            input_data_asset_id, manifest_data_asset_id
+        )
+    )
     data_assets = [
         ComputationDataAsset(id=input_data_asset_id, mount="exaspim_dataset"),
         ComputationDataAsset(id=manifest_data_asset_id, mount="manifest"),
@@ -366,21 +357,39 @@ def start_ij_capsule(args, co_client, input_data_asset_id, manifest_data_asset_i
     )
 
 
-def get_channel_name(metadata: dict):  # pragma: no cover
-    """Get the channel name from the metadata json"""
+def validate_channel_name(metadata: dict, args: argparse.Namespace) -> str:  # pragma: no cover
+    """Validate the channel name in the metadata json and in the capsule arguments.
+
+    If there is no channel name in the capsule arguments, set it in place.
+
+    Returns
+    -------
+
+    The channel name is the nominal wavelength only, without the "ch" prefix.
+    """
+    ch_names = []
     if "acquisition" in metadata:
         acq = metadata["acquisition"]
-        ch_name = acq["tiles"][0]["channel"]["channel_name"]
+        for t in acq["tiles"]:
+            ch_names.append(t["channel"]["channel_name"])
+    logger.info(f"Found channels in acquisition metadata: {set(ch_names)}")
+    if args.channel:
+        if args.channel not in ch_names:
+            raise ValueError(
+                f"Channel name {args.channel} not found in the metadata: {set(ch_names)}."
+            )
     else:
-        logger.warning("Cannot get channel name, defaults to ch488")
-        ch_name = "ch488"
-    return ch_name
+        args.channel = ch_names[0]
+    logger.info(f"Processing selected channel: {args.channel}")
+    return args.channel
 
 
-def recursive_assign_items(dst: Union[collections.abc.Mapping, list],
-                           key_dst: Union[str, int],
-                           src: Union[collections.abc.Mapping, list],
-                           key_src: Union[str, int]) -> None:  # pragma: no cover
+def recursive_assign_items(
+        dst: Union[collections.abc.Mapping, list],
+        key_dst: Union[str, int],
+        src: Union[collections.abc.Mapping, list],
+        key_src: Union[str, int],
+) -> None:  # pragma: no cover
     """Recursively assign items between dictionaries or lists.
 
 
@@ -405,8 +414,9 @@ def recursive_assign_items(dst: Union[collections.abc.Mapping, list],
         dst[key_dst] = src[key_src]
 
 
-def recursive_update_mapping(dst: collections.abc.Mapping,
-                             src: collections.abc.Mapping) -> collections.abc.Mapping:  # pragma: no cover
+def recursive_update_mapping(
+        dst: collections.abc.Mapping, src: collections.abc.Mapping
+) -> collections.abc.Mapping:  # pragma: no cover
     """Recursively update a dictionary-like object.
 
     src contains items that will be overwritten in dst."""
@@ -463,7 +473,7 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
         regularize_with_choice="rigid",
     )
 
-    ch_name = get_channel_name(metadata)
+    ch_name = args.channel
     # Even the flat-fielded fusions goes with the raw dataset prefix
     n5_to_zarr: N5toZarrParameters = N5toZarrParameters(
         voxel_size_zyx=(1.0, 0.748, 0.748),
@@ -493,15 +503,16 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
         logger.info(f"Overriding manifest entries from {args.template_manifest}")
         with open(args.template_manifest, "r") as f:
             template = json.load(f)
-        processing_manifest = ExaspimProcessingPipeline(**recursive_update_mapping(
-            processing_manifest.dict(), template))
+        processing_manifest = ExaspimProcessingPipeline(
+            **recursive_update_mapping(processing_manifest.dict(), template)
+        )
 
     return processing_manifest
 
 
-def create_and_upload_emr_config(args, metadata, manifest: ExaspimProcessingPipeline):  # pragma: no cover
+def create_and_upload_emr_config(args, manifest: ExaspimProcessingPipeline):  # pragma: no cover
     """Create EMR command line parameters for the fusion of the present alignment run."""
-    ch_name = get_channel_name(metadata)
+    ch_name = args.channel
     config = (
         f"-x, {args.alignment_output_uri}"
         f"bigstitcher_emr_{manifest.subject_id}_{manifest.pipeline_suffix}.xml,\n"
@@ -599,7 +610,7 @@ def capsule_main():  # pragma: no cover
     cwd = os.getcwd()
     if os.path.basename(cwd) != "code":
         # We don't know where we are in the capsule environment
-        raise RuntimeError("This program should be run from the 'code' capsule folder.")
+        raise RuntimeError("This program must be run from the 'code' capsule folder.")
 
     if "CODEOCEAN_DOMAIN" not in os.environ or "CUSTOM_KEY" not in os.environ:
         raise RuntimeError(
@@ -609,20 +620,21 @@ def capsule_main():  # pragma: no cover
     process_args(args)
     logger.info("This is pipeline run {}".format(args.fname_timestamp))
     metadata = get_dataset_metadata(args)
+    validate_channel_name(metadata, args)
     # Creating the API Client
     co_client = CodeOceanClient(domain=os.environ["CODEOCEAN_DOMAIN"], token=os.environ["CUSTOM_KEY"])
     # validate_s3_location(args, metadata)
-    input_data_asset_id = register_or_get_dataset_as_CO_data_asset(args.input_dataset_name,
-                                                                   args.input_dataset_bucket_name,
-                                                                   args.input_dataset_prefix, co_client)
+    input_data_asset_id = register_or_get_dataset_as_CO_data_asset(
+        args.input_dataset_name, args.input_dataset_bucket_name, args.input_dataset_prefix, co_client
+    )
 
     if args.raw_data_uri and args.raw_dataset_prefix != args.input_dataset_prefix:
-        register_or_get_dataset_as_CO_data_asset(args.raw_dataset_name,
-                                                 args.raw_dataset_bucket_name,
-                                                 args.raw_dataset_prefix, co_client)
+        register_or_get_dataset_as_CO_data_asset(
+            args.raw_dataset_name, args.raw_dataset_bucket_name, args.raw_dataset_prefix, co_client
+        )
     manifest = create_exaspim_manifest(args, metadata)
     upload_manifest(args, manifest)
-    create_and_upload_emr_config(args, metadata, manifest)
+    create_and_upload_emr_config(args, manifest)
 
     # The XML also goes into this but we need the manifest now. CO index may miss the xml
     manifest_data_asset_id = register_manifest_as_CO_data_asset(args, co_client)

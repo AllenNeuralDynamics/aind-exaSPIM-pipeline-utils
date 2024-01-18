@@ -4,9 +4,9 @@ from __future__ import annotations
 import json
 import os
 from datetime import datetime
-from typing import Optional, Tuple, Iterable, List
+from typing import Optional, Tuple, List
 
-from aind_data_schema import DataProcess, Metadata
+from aind_data_schema import DataProcess
 from aind_data_schema.base import AindModel
 from pydantic import Field, validator
 import argparse
@@ -336,18 +336,18 @@ def get_capsule_metadata() -> dict:  # pragma: no cover
     # return Metadata.parse_obj(json_data)
     return json_data
 
-
-def append_process_entries_to_metadata(
-    dataset_metadata: Metadata, processes: Iterable[DataProcess]
-) -> None:  # pragma: no cover
-    """Append the given process metadata entries to the dataset_metadata
-
-    So long the pipeline is a linear sequence of steps, this should always be the
-    case. Otherwise the process metadata should be collected and appended
-    at the end of the parallel processing capsules.
-    """
-    for process in processes:
-        dataset_metadata.processing.data_processes.append(process)
+# TODO: We do not yet use an accumulative metadata file with multiple data_process entries.
+# def append_process_entries_to_metadata(
+#     dataset_metadata: Metadata, processes: Iterable[DataProcess]
+# ) -> None:  # pragma: no cover
+#     """Append the given process metadata entries to the dataset_metadata
+#
+#     So long the pipeline is a linear sequence of steps, this should always be the
+#     case. Otherwise the process metadata should be collected and appended
+#     at the end of the parallel processing capsules.
+#     """
+#     for process in processes:
+#         dataset_metadata.processing.data_processes.append(process)
 
 
 def write_result_dataset_metadata(dataset_metadata: dict) -> None:  # pragma: no cover
