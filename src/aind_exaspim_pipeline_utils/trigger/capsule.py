@@ -389,7 +389,7 @@ def recursive_assign_items(
         key_dst: Union[str, int],
         src: Union[collections.abc.Mapping, list],
         key_src: Union[str, int],
-) -> None:  # pragma: no cover
+) -> None:
     """Recursively assign items between dictionaries or lists.
 
 
@@ -416,10 +416,17 @@ def recursive_assign_items(
 
 def recursive_update_mapping(
         dst: collections.abc.Mapping, src: collections.abc.Mapping
-) -> collections.abc.Mapping:  # pragma: no cover
+) -> collections.abc.Mapping:
     """Recursively update a dictionary-like object.
 
-    src contains items that will be overwritten in dst."""
+    Use to override items in a parameter configuration dictionary (manifest). The overriding dictionary
+    shall have the same hierarchy as the original one but only contains the entries to override.
+
+    If a list item is to be updated, the overriding dictionary shall contain a list of the same length and
+    oll the not to be updated dictionary items of the list can be empty.
+
+    The hierarchy is traversed following ``src`` and ``dst`` is expected to have all encountered keys.
+    """
     for key in src:
         recursive_assign_items(dst, key, src, key)
     return dst
@@ -515,7 +522,7 @@ def create_and_upload_emr_config(args, manifest: ExaspimProcessingPipeline):  # 
     ch_name = args.channel
     config = (
         f"-x, {args.alignment_output_uri}"
-        f"bigstitcher_emr_{manifest.subject_id}_{manifest.pipeline_suffix}.xml,\n"
+        f"bigstitcher_emr_{manifest.subject_id}_{manifest.pipeline_suffix}_0.xml,\n"
         f"--outS3Bucket, {args.fusion_output_bucket}, -o, /{args.fusion_output_prefix}/fused.n5,\n"
         f"-d, /ch{ch_name}/s0, --storage, N5, --UINT16, --minIntensity=0, "
         f"--maxIntensity=65535, --preserveAnisotropy\n"
