@@ -6,7 +6,8 @@ import json
 from pathlib import Path
 from urllib.parse import urlparse
 
-from ng_link import NgState, link_utils, xml_parsing
+from ng_link import NgState, link_utils
+from ng_link.parsers import XmlParser
 import numpy as np
 import os
 
@@ -70,9 +71,9 @@ def create_ng_link(
     # output_json_path = '/results'
 
     # XML info
-    vox_sizes: tuple[float, float, float] = xml_parsing.extract_tile_vox_size(xml_path)
-    tile_paths: dict[int, str] = xml_parsing.extract_tile_paths(xml_path)
-    tile_transforms: dict[int, list[dict]] = xml_parsing.extract_tile_transforms(xml_path)
+    vox_sizes: tuple[float, float, float] = XmlParser.extract_tile_vox_size(xml_path)
+    tile_paths: dict[int, str] = XmlParser.extract_tile_paths(xml_path)
+    tile_transforms: dict[int, list[dict]] = XmlParser.extract_tile_transforms(xml_path)
 
     # Color info
     channel: int = link_utils.extract_channel_from_tile_path(tile_paths[0])
