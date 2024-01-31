@@ -516,8 +516,9 @@ def imagej_do_registrations(pipeline_manifest: ExaspimProcessingPipeline,
             process_meta.outputs["ng_links"] = nglinks
         logger.info("Creating edge connectivity report")
         create_edge_connectivity_report(reg_index)
-    logger.info("Creating EMR ready xml from bigstitcher.xml")
-    create_emr_ready_xml(args, num_regs=reg_index)
+    # The direct s3 access is the same for the emr run
+    # logger.info("Creating EMR ready xml from bigstitcher.xml")
+    # create_emr_ready_xml(args, num_regs=reg_index)
 
 
 def imagej_wrapper_main():  # pragma: no cover
@@ -525,7 +526,14 @@ def imagej_wrapper_main():  # pragma: no cover
     # logging.basicConfig(format="%(asctime)s %(name)s %(levelname)-7s %(message)s")
     logging.basicConfig(format="%(asctime)s %(levelname)-7s %(message)s")
 
+    # Add a file output, too for the logs
+    file_handler = logging.FileHandler("../results/imagej_wrapper.log")
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)-7s %(message)s"))
+
     logger = logging.getLogger()
+    logger.addHandler(file_handler)
+
     pipeline_manifest = get_capsule_manifest()
 
     args = {
@@ -547,6 +555,7 @@ def imagej_wrapper_main():  # pragma: no cover
     logging.getLogger("botocore").setLevel(logging.INFO)
     logging.getLogger("urllib3").setLevel(logging.INFO)
     logging.getLogger("s3fs").setLevel(logging.INFO)
+    logger.info(f"This is pipeline session {args['session_id']}")
 
     args.update(get_auto_parameters(args))
     process_meta = get_imagej_wrapper_metadata(
@@ -557,7 +566,6 @@ def imagej_wrapper_main():  # pragma: no cover
         input_location=args["input_uri"],
         output_location=args["output_uri"],
     )
-
     write_process_metadata(process_meta, prefix="ipreg")
     ip_det_parameters = pipeline_manifest.ip_detection
     if ip_det_parameters is not None:

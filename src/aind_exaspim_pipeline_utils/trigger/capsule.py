@@ -333,7 +333,7 @@ def start_ij_capsule(args, co_client, input_data_asset_id, manifest_data_asset_i
         )
     )
     data_assets = [
-        ComputationDataAsset(id=input_data_asset_id, mount="exaspim_dataset"),
+        # ComputationDataAsset(id=input_data_asset_id, mount="exaspim_dataset"),
         ComputationDataAsset(id=manifest_data_asset_id, mount="manifest"),
     ]
 
@@ -484,7 +484,7 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
     # Even the flat-fielded fusions goes with the raw dataset prefix
     n5_to_zarr: N5toZarrParameters = N5toZarrParameters(
         voxel_size_zyx=(1.0, 0.748, 0.748),
-        input_uri=f"s3://{args.fusion_output_bucket}/{args.fusion_output_prefix}/fused.n5/ch{ch_name}/",
+        input_uri=f"s3://{args.fusion_output_bucket}/{args.fusion_output_prefix}/fused.n5/setup0/timepoint0/",
         output_uri=f"s3://{args.fusion_output_bucket}/{args.fusion_output_prefix}/fused.zarr/",
     )
 
@@ -493,7 +493,7 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
         input_uri=f"s3://{args.fusion_output_bucket}/{args.fusion_output_prefix}/fused.zarr/",
     )
 
-    xml_creation: XMLCreationParameters = XMLCreationParameters(ch_name=ch_name)
+    xml_creation: XMLCreationParameters = XMLCreationParameters(ch_name=ch_name, input_uri=args.exaspim_data_uri)
 
     processing_manifest: ExaspimProcessingPipeline = ExaspimProcessingPipeline(
         creation_time=args.pipeline_timestamp,
@@ -521,11 +521,13 @@ def create_and_upload_emr_config(args, manifest: ExaspimProcessingPipeline):  # 
     """Create EMR command line parameters for the fusion of the present alignment run."""
     ch_name = args.channel
     config = (
-        f"-x, {args.alignment_output_uri}"
-        f"bigstitcher_emr_{manifest.subject_id}_{manifest.pipeline_suffix}_0.xml,\n"
-        f"--outS3Bucket, {args.fusion_output_bucket}, -o, /{args.fusion_output_prefix}/fused.n5,\n"
-        f"-d, /ch{ch_name}/s0, --storage, N5, --UINT16, --minIntensity=0, "
-        f"--maxIntensity=65535, --preserveAnisotropy\n"
+        f"[\"-x\", \"{args.alignment_output_uri}"
+        f"bigstitcher_emr_{manifest.subject_id}_{manifest.pipeline_suffix}_0.xml\",\n"
+        f"\"--outS3Bucket\", \"{args.fusion_output_bucket}\", \"-o\", \"/{args.fusion_output_prefix}/fused.n5\",\n"
+        f"\"--bdv\", \"0,0\", "
+        f"\"--xmlout\", \"s3://{args.fusion_output_bucket}/{args.fusion_output_prefix}/fused.xml\", "
+        "\"--storage\", \"N5\", \"--UINT16\", \"--minIntensity=0\", "
+        "\"--maxIntensity=65535\", \"--preserveAnisotropy\" ]\n"
     )
     with open("../results/emr_fusion_config.txt", "w") as f:
         f.write(config)

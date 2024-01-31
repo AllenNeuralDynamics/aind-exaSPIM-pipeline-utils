@@ -226,17 +226,11 @@ class XMLCreationParameters(AindModel):  # pragma: no cover
 
     ch_name: str = Field(..., title="Channel name, without the ch prefix")
 
-    # input_uri: str = Field(
-    #     ...,
-    #     title="Top level s3 uri for input dataset.",
-    # )
-    #
-    # output_uri: str = Field(
-    #     ...,
-    #     title="Output Zarr dataset path. Must be a local filesystem path or "
-    #           "start with s3:// to trigger S3 direct access. "
-    #           "Must be different from the input_uri. Will be overwritten if exists.",
-    # )
+    input_uri: Optional[str] = Field(
+        None,
+        title="Input Zarr group dataset path. This is the dataset the alignment is running on."
+              "Must be the aind-open-data s3:// path without the SPIM.ome.zarr suffix",
+    )
 
 
 class ExaspimProcessingPipeline(AindModel):  # pragma: no cover
