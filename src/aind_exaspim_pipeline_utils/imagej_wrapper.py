@@ -436,7 +436,8 @@ def create_emr_ready_xml(args: dict, num_regs: int = 1):  # pragma: no cover
         imgloader.insert(0, s3b)
         elem_zarr = imgloader.find("zarr")
         # substitute regex pattern in the beginning of elem_zarr.text
-        elem_zarr.text = "/" + url.path.strip("/") + "/SPIM.ome.zarr"
+        # Removed leading slash
+        elem_zarr.text = url.path.strip("/") + "/SPIM.ome.zarr"
         # write the xml file
         tree.write(f"../results/{emr_xml_name}", encoding="utf-8")
 
@@ -525,7 +526,14 @@ def imagej_wrapper_main():  # pragma: no cover
     # logging.basicConfig(format="%(asctime)s %(name)s %(levelname)-7s %(message)s")
     logging.basicConfig(format="%(asctime)s %(levelname)-7s %(message)s")
 
+    # Add a file output, too for the logs
+    file_handler = logging.FileHandler("../results/imagej_wrapper.log")
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)-7s %(message)s"))
+
     logger = logging.getLogger()
+    logger.addHandler(file_handler)
+
     pipeline_manifest = get_capsule_manifest()
 
     args = {
@@ -547,6 +555,7 @@ def imagej_wrapper_main():  # pragma: no cover
     logging.getLogger("botocore").setLevel(logging.INFO)
     logging.getLogger("urllib3").setLevel(logging.INFO)
     logging.getLogger("s3fs").setLevel(logging.INFO)
+    logger.info(f"This is pipeline session {args['session_id']}")
 
     args.update(get_auto_parameters(args))
     process_meta = get_imagej_wrapper_metadata(
@@ -557,7 +566,6 @@ def imagej_wrapper_main():  # pragma: no cover
         input_location=args["input_uri"],
         output_location=args["output_uri"],
     )
-
     write_process_metadata(process_meta, prefix="ipreg")
     ip_det_parameters = pipeline_manifest.ip_detection
     if ip_det_parameters is not None:
