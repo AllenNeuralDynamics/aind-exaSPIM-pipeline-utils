@@ -191,7 +191,7 @@ def create_ng_link(
         input_config=input_config,
         mount_service="s3",
         bucket_path=bucket_name,
-        output_json=ng_dir,
+        output_dir=ng_dir,
         json_name=json_name,
     )
     neuroglancer_link.save_state_as_json()
