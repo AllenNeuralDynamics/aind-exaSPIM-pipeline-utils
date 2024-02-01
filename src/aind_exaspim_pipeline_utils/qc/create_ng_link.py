@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from urllib.parse import urlparse
 
+import s3fs
 from ng_link import NgState, link_utils
 from ng_link.parsers import XmlParser
 import numpy as np
@@ -27,6 +28,40 @@ def get_tile_positions(dataset_path: str):  # pragma: no cover
 
         zattrs_file = tile_path / ".zattrs"
         zattrs_json = read_json(zattrs_file)
+
+        scale = zattrs_json["multiscales"][0]["datasets"][0]["coordinateTransformations"][0]["scale"]
+        translation = zattrs_json["multiscales"][0]["datasets"][0]["coordinateTransformations"][1][
+            "translation"
+        ]
+
+        scale = np.array(scale[2:][::-1])
+        translation = np.array(translation[2:][::-1])
+        translation /= scale
+        translation = np.round(translation, 4)
+
+        tile_positions[tile_path.name] = translation
+
+    return tile_positions
+
+def get_tile_positions_s3(dataset_uri: str):  # pragma: no cover
+    """Get the tile positions from the zattrs files.
+    Parameters
+    ----------
+
+    dataset_uri: The S3 prefix to the dataset (e.g. "bucket_name/dataset_name/SPIM.ome.zarr")
+    """
+    tile_positions = {}
+    s3 = s3fs.S3FileSystem()
+    url = urlparse(dataset_uri)
+    dataset_path = url.netloc + "/" + url.path.strip("/")
+    for tile_path in s3.ls(dataset_path):
+        if not s3.isdir(tile_path):
+            continue
+
+        tile_path = Path(tile_path)
+        zattrs_file = str(tile_path / ".zattrs")
+        with s3.open(zattrs_file, "r") as f:
+            zattrs_json = json.load(f)
 
         scale = zattrs_json["multiscales"][0]["datasets"][0]["coordinateTransformations"][0]["scale"]
         translation = zattrs_json["multiscales"][0]["datasets"][0]["coordinateTransformations"][1][
@@ -81,7 +116,7 @@ def create_ng_link(
     hex_str = f"#{str(hex(hex_val))[2:]}"
 
     # Zattrs info
-    zattrs_positions = get_tile_positions("../data/exaspim_dataset/SPIM.ome.zarr")
+    zattrs_positions = get_tile_positions_s3(dataset_uri)
 
     # Update Translation -- undo zattrs transform
     for tile_id, tf in tile_transforms.items():
