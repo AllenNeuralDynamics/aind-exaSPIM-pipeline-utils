@@ -385,7 +385,7 @@ def get_zarr_multiscale_metadata(config: dict):  # pragma: no cover
     t = datetime.datetime.now()
     dp = DataProcess(
         name=ProcessName.FILE_CONVERSION,
-        version=config["capsule"]["version"],
+        software_version=config["capsule"]["version"],
         start_date_time=t,
         end_date_time=t,
         input_location=config["input_uri"],
