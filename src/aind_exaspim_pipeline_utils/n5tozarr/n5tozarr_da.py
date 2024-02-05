@@ -325,6 +325,7 @@ def n5tozarr_da_converter():  # pragma: no cover
     LOGGER.setLevel(logging.INFO)
 
     capsule_manifest = exaspim_manifest.get_capsule_manifest()
+    LOGGER.info("This is pipeline run: %s", capsule_manifest.pipeline_suffix)
     config = capsule_manifest.n5_to_zarr.dict()
     if config is None:
         raise ValueError("Manifest does not contain configuration for n5tozarr processing")
@@ -439,6 +440,7 @@ def zarr_multiscale_converter():  # pragma: no cover
     LOGGER.setLevel(logging.INFO)
 
     capsule_manifest = exaspim_manifest.get_capsule_manifest()
+    LOGGER.info("This is pipeline run: %s", capsule_manifest.pipeline_suffix)
     config = capsule_manifest.zarr_multiscale.dict()
     if config is None:
         raise ValueError("Manifest does not contain configuration for zarr_multiscale processing")
