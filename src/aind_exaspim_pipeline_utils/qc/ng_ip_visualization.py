@@ -39,9 +39,24 @@ def get_tile_positions(dataset_path: str):  # pragma: no cover
 
     return tile_positions
 
-def read_in_n5_ips():
-    """Read in intereset point coordinates from the n5 binary files."""
-    pass
+def read_in_n5_ips(tile_setupId):
+    """Read in intereset point coordinates from the n5 binary files.
+    Interest points are not sorted.
+    """
+    n5s = zarr.n5.N5FSStore("../results/interestpoints.n5/")
+    zg = zarr.open(store=n5s, mode="r")
+
+    id = zg[f"tpId_0_viewSetupId_{tile_setupId}/beads/interestpoints/id"]
+    loc = zg[f"tpId_0_viewSetupId_{tile_setupId}/beads/interestpoints/loc"]
+
+    # Now return the first 10 for testing in ng annotation dict
+    if id.ndim < 2 or loc.ndim < 2 or id.shape[0] != loc.shape[0]:
+        raise ValueError(f"n5 ip arrays shape error id.shape={id.shape} loc.shape={loc.shape}")
+
+    P = []
+    for i in range(10):
+        P.append({'id': id[i], 'x': loc[i][0], 'y': loc[i][1], 'z':loc[i][2]})
+    return P
 
 # Copy the relevant bits from create_ng_link.py and create ng link with
 # annotation layer
@@ -145,6 +160,17 @@ def create_ng_link_with_annotation(
         final_transform = link_utils.convert_matrix_3x4_to_5x6(net_tf)
 
         sources.append({"url": url, "transform_matrix": final_transform.tolist()})
+        ips = read_in_n5_ips(tile_id)
+        layers.append({
+                "type": "annotation",
+                "source": f"precomputed://{alignment_output_uri}/ng/precomputed",
+                "tool": "annotatePoint",
+                "name": f"ips_{tile_id}",
+                "annotations": ips,
+                # Pass None or delete limits if
+                # you want to include all the points
+                # "limits": [100, 200],  # None # erase line
+            })
 
     ng_dir, json_name = os.path.split(output_json)
     if ng_dir:
@@ -159,7 +185,7 @@ def create_ng_link_with_annotation(
         input_config=input_config,
         mount_service="s3",
         bucket_path=bucket_name,
-        output_json=ng_dir,
+        output_dir=ng_dir,
         json_name=json_name,
     )
     neuroglancer_link.save_state_as_json()
