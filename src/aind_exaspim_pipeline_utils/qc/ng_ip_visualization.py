@@ -199,8 +199,10 @@ def create_ng_link_with_annotation(
         sources.append({"url": url, "transform_matrix": final_transform.tolist()})
         # ips = read_in_n5_ips(tile_id)
         ips = []
-        for i in range(10):
-            ips.append({'z': -700 + 10*i, 'y': -11290 + 20* i, 'x': -14311 + 30*i})
+        # Mark the center
+        ips.append({'x': -14378,'y': -17802, 'z': -491})
+        # for i in range(10):
+        #     ips.append({'z': -700 + 10*i, 'y': -11290 + 20* i, 'x': -14311 + 30*i})
         layers.append({
                 "type": "annotation",
                 "source": f"precomputed://ng/tile_{tile_id}/precomputed",
@@ -211,6 +213,7 @@ def create_ng_link_with_annotation(
                 # you want to include all the points
                 # "limits": [100, 200],  # None # erase line
             })
+        break
 
     # ng_dir, json_name = os.path.split(output_json)
     ng_dir = "ng"
@@ -240,7 +243,9 @@ def create_ng_link_with_annotation(
     neuroglancer_link.save_state_as_json()
     print(neuroglancer_link.get_url_link())
     os.chdir("../code")  # Back to our standard dir
-    thelink = f"https://neuroglancer-demo.appspot.com/#!{alignment_output_uri}/ng/{json_name}"
+    # thelink = f"https://neuroglancer-demo.appspot.com/#!{alignment_output_uri}/ng/{json_name}"
+    # Local installation
+    thelink = f"https://aind-neuroglancer-sauujisjxq-uw.a.run.app/#!{alignment_output_uri}/ng/{json_name}"
     with open("../results/ng/ng_link.txt", "a") as f:
         print(thelink, file=f)
     return thelink
