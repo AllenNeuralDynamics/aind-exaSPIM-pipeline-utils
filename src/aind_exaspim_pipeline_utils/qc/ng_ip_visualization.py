@@ -8,6 +8,8 @@ from urllib.parse import urlparse
 import numpy as np
 from ng_link import NgState, link_utils
 from ng_link.parsers import XmlParser
+import s3fs
+import zarr
 
 
 def read_json(json_path: str) -> dict:  # pragma: no cover
@@ -59,6 +61,40 @@ def read_in_n5_ips(tile_setupId):
         P.append({'id': id[i], 'x': loc[i][0], 'y': loc[i][1], 'z':loc[i][2]})
     return P
 
+def get_tile_positions_s3(dataset_uri: str):  # pragma: no cover
+    """Get the tile positions from the zattrs files.
+    Parameters
+    ----------
+
+    dataset_uri: The S3 prefix to the dataset (e.g. "bucket_name/dataset_name/SPIM.ome.zarr")
+    """
+    tile_positions = {}
+    s3 = s3fs.S3FileSystem()
+    url = urlparse(dataset_uri)
+    dataset_path = url.netloc + "/" + url.path.strip("/")
+    for tile_path in s3.ls(dataset_path):
+        if not s3.isdir(tile_path):
+            continue
+
+        tile_path = Path(tile_path)
+        zattrs_file = str(tile_path / ".zattrs")
+        with s3.open(zattrs_file, "r") as f:
+            zattrs_json = json.load(f)
+
+        scale = zattrs_json["multiscales"][0]["datasets"][0]["coordinateTransformations"][0]["scale"]
+        translation = zattrs_json["multiscales"][0]["datasets"][0]["coordinateTransformations"][1][
+            "translation"
+        ]
+
+        scale = np.array(scale[2:][::-1])
+        translation = np.array(translation[2:][::-1])
+        translation /= scale
+        translation = np.round(translation, 4)
+
+        tile_positions[tile_path.name] = translation
+
+    return tile_positions
+
 # Copy the relevant bits from create_ng_link.py and create ng link with
 # annotation layer
 
@@ -100,7 +136,7 @@ def create_ng_link_with_annotation(
     hex_str = f"#{str(hex(hex_val))[2:]}"
 
     # Zattrs info
-    zattrs_positions = get_tile_positions("../data/exaspim_dataset/SPIM.ome.zarr")
+    zattrs_positions = get_tile_positions_s3(dataset_uri)
 
     # Update Translation -- undo zattrs transform
     for tile_id, tf in tile_transforms.items():
@@ -164,7 +200,8 @@ def create_ng_link_with_annotation(
         ips = read_in_n5_ips(tile_id)
         layers.append({
                 "type": "annotation",
-                "source": f"precomputed://{alignment_output_uri}/ng/precomputed",
+                "source": f"precomputed://ng/tile_{tile_id}/precomputed",
+                #"source": f"precomputed://../results/ng/tile_{tile_id}/precomputed",
                 "tool": "annotatePoint",
                 "name": f"ips_{tile_id}",
                 "annotations": ips,
@@ -173,24 +210,34 @@ def create_ng_link_with_annotation(
                 # "limits": [100, 200],  # None # erase line
             })
 
-    ng_dir, json_name = os.path.split(output_json)
-    if ng_dir:
-        os.makedirs(ng_dir, exist_ok=True)
-    url = urlparse(dataset_uri)
-    if url.scheme != "s3":
-        raise ValueError(f"Dataset URI must be an S3 URI, got {dataset_uri}")
-    bucket_name = url.netloc
+    # ng_dir, json_name = os.path.split(output_json)
+    ng_dir = "ng"
+    json_name = "process_output.json"
+    # url = urlparse(dataset_uri)
+    url = urlparse(alignment_output_uri)
+    # if url.scheme != "s3":
+    #     raise ValueError(f"Dataset URI must be an S3 URI, got {dataset_uri}")
+    # bucket_name = url.netloc
+    bucket_path = f"{url.netloc}{url.path}"
 
     # Generate the link
+    # AnnotationLayer has the assumption that if "source" is a local_path
+    # then it will be replaced by "s3://bucket_path/local_path" and files are
+    # written out to local_path. 
+    # So we need to change pwd.
+    os.chdir("../results")
+    if ng_dir:
+        os.makedirs(ng_dir, exist_ok=True)
     neuroglancer_link = NgState(
         input_config=input_config,
         mount_service="s3",
-        bucket_path=bucket_name,
+        bucket_path=bucket_path,
         output_dir=ng_dir,
         json_name=json_name,
     )
     neuroglancer_link.save_state_as_json()
     print(neuroglancer_link.get_url_link())
+    os.chdir("../code")  # Back to our standard dir
     thelink = f"https://neuroglancer-demo.appspot.com/#!{alignment_output_uri}/ng/{json_name}"
     with open("../results/ng/ng_link.txt", "a") as f:
         print(thelink, file=f)
