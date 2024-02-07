@@ -58,7 +58,7 @@ def read_in_n5_ips(tile_setupId):
 
     P = []
     for i in range(10):
-        P.append({'id': id[i], 'x': loc[i][0], 'y': loc[i][1], 'z':loc[i][2]})
+        P.append({'x': loc[i][0], 'y': loc[i][1], 'z':loc[i][2]})
     return P
 
 def get_tile_positions_s3(dataset_uri: str):  # pragma: no cover
@@ -197,13 +197,15 @@ def create_ng_link_with_annotation(
         final_transform = link_utils.convert_matrix_3x4_to_5x6(net_tf)
 
         sources.append({"url": url, "transform_matrix": final_transform.tolist()})
-        ips = read_in_n5_ips(tile_id)
+        # ips = read_in_n5_ips(tile_id)
+        ips = []
+        for i in range(10):
+            ips.append({'z': -700 + 10*i, 'y': -11290 + 20* i, 'x': -14311 + 30*i})
         layers.append({
                 "type": "annotation",
                 "source": f"precomputed://ng/tile_{tile_id}/precomputed",
-                #"source": f"precomputed://../results/ng/tile_{tile_id}/precomputed",
                 "tool": "annotatePoint",
-                "name": f"ips_{tile_id}",
+                "name": f"IPs_{tile_id}",
                 "annotations": ips,
                 # Pass None or delete limits if
                 # you want to include all the points
