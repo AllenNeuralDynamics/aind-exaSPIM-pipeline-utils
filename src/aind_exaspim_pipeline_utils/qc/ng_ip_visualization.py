@@ -42,7 +42,7 @@ def get_tile_positions(dataset_path: str):  # pragma: no cover
 
     return tile_positions
 
-def read_in_n5_ips(tile_setupId):
+def read_in_n5_ips(tile_setupId, transform_3x4=None):
     """Read in intereset point coordinates from the n5 binary files.
     Interest points are not sorted.
     """
@@ -57,8 +57,18 @@ def read_in_n5_ips(tile_setupId):
         raise ValueError(f"n5 ip arrays shape error id.shape={id.shape} loc.shape={loc.shape}")
 
     P = []
-    for i in range(10):
-        P.append({'x': loc[i][0], 'y': loc[i][1], 'z':loc[i][2]})
+    N = min(loc.shape[0],1000)
+    # Read in the interest points from disk in one go
+    loc = np.array(loc[:N])
+    if transform_3x4 is not None:
+        vec = np.ones(4,dtype=float)
+        for i in range(N):
+            vec[:3] = loc[i]
+            v2 = np.matmul(transform_3x4, vec)
+            P.append({'x': v2[2], 'y': v2[1], 'z':v2[0]})
+    else:
+        for i in range(10):
+            P.append({'x': loc[i][2], 'y': loc[i][1], 'z':loc[i][0]})
     return P
 
 def get_tile_positions_s3(dataset_uri: str):  # pragma: no cover
@@ -138,6 +148,9 @@ def create_ng_link_with_annotation(
     # Zattrs info
     zattrs_positions = get_tile_positions_s3(dataset_uri)
 
+    # The points do not need the zattrs correction
+    point_net_transforms: dict[int, np.ndarray] = link_utils.calculate_net_transforms(tile_transforms)
+
     # Update Translation -- undo zattrs transform
     for tile_id, tf in tile_transforms.items():
         t_path = tile_paths[tile_id]
@@ -197,12 +210,13 @@ def create_ng_link_with_annotation(
         final_transform = link_utils.convert_matrix_3x4_to_5x6(net_tf)
 
         sources.append({"url": url, "transform_matrix": final_transform.tolist()})
-        # ips = read_in_n5_ips(tile_id)
-        ips = []
-        # Mark the center
-        ips.append({'x': -14378,'y': -17802, 'z': -491})
-        # for i in range(10):
-        #     ips.append({'z': -700 + 10*i, 'y': -11290 + 20* i, 'x': -14311 + 30*i})
+        # Mark the corner of each tile
+        # ips = []
+        # vec = np.zeros(4, dtype=float)
+        # vec[3] = 1
+        # vec = np.matmul(point_net_transforms[tile_id], vec)
+        # ips.append({'x': vec[2],'y': vec[1], 'z': vec[0]})
+        ips = read_in_n5_ips(tile_id, point_net_transforms[tile_id])
         layers.append({
                 "type": "annotation",
                 "source": f"precomputed://ng/tile_{tile_id}/precomputed",
@@ -213,7 +227,6 @@ def create_ng_link_with_annotation(
                 # you want to include all the points
                 # "limits": [100, 200],  # None # erase line
             })
-        break
 
     # ng_dir, json_name = os.path.split(output_json)
     ng_dir = "ng"
