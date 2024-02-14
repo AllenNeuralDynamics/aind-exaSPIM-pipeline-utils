@@ -12,6 +12,19 @@ class ImagejMacros:
     # strings can be added " " + " "
     # within strings, [ ] can be used for spaces, for file names? TBC
 
+    MACRO_PHASE_CORRELATION = """
+run("Calculate pairwise shifts ...",
+    "select={process_xml} process_angle=[All angles] process_channel=[All channels]" +
+    " process_illumination=[All illuminations] process_tile=[All tiles] process_timepoint=[All Timepoints]" +
+    " method=[Phase Correlation] channels=[Average Channels] downsample_in_x={downsample} downsample_in_y={downsample} downsample_in_z={downsample}")
+// do global optimization
+run("Optimize globally and apply shifts ...",
+    "select={process_xml} process_angle=[All angles] process_channel=[All channels] " +
+    "process_illumination=[All illuminations] process_tile=[All tiles] process_timepoint=[All Timepoints]" +
+    " relative=2.500 absolute=3.500 global_optimization_strategy=" +
+    "[Two-Round using Metadata to align unconnected Tiles] fix_group_0-0,");
+    """
+
     MACRO_IP_DET = """
 run("Memory & Threads...", "parallel={parallel:d}");
 run("Detect Interest Points for Registration",
@@ -157,3 +170,21 @@ run("Register Dataset based on Interest Points",
                 "select_reference_views"
             ] = " select_reference_views=[ViewSetupId:{:d} Timepoint:0]".format(P["map_back_reference_view"])
         return ImagejMacros.MACRO_IP_REG.format(**fparams)
+
+
+    @staticmethod
+    def get_macro_phase_correlation(P: Dict[str, Any]) -> str:
+        """Get a parameter formatted phase correlation macro.
+
+        Parameters
+        ----------
+        P : `dict`
+          Parameter dictionary for macro formatting.
+            Note: Will already have 
+                process_xml: path to xml to process
+                downsample: pyramid level to use
+
+        """
+        fparams = dict(P)
+
+        return ImagejMacros.MACRO_PHASE_CORRELATION.format(**fparams)
