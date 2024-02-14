@@ -22,7 +22,6 @@ import xml.etree.ElementTree as ET
 # from aind_data_schema import DataProcess
 # from aind_data_schema.processing import ProcessName
 
-
 from . import __version__
 from .imagej_macros import ImagejMacros
 from .exaspim_manifest import get_capsule_manifest, write_process_metadata, ExaspimProcessingPipeline
@@ -30,7 +29,30 @@ from .qc import bigstitcher_log_edge_analysis
 from .qc.create_ng_link import create_ng_link
 
 
+class PhaseCorrelationSchema(argschema.ArgSchema):  # pragma: no cover
+
+    """Adjustable parameters for phase correlation."""
+
+    downsample = fld.Int(
+        required=True,
+        metadata={"description": "Downsampling factor. Use the one that is available in the dataset."},
+    )
+    min_correlation = fld.Float(
+        load_default=0.6, metadata={"description": "Minimum correlation value for phase correlation."},
+    )
+    max_shift_in_x = fld.Int(
+        load_default=0, metadata={"description": "Maximum displacement in x direction."},
+    )
+    max_shift_in_y = fld.Int(
+        load_default=0, metadata={"description": "Maximum displacement in y direction."},
+    )
+    max_shift_in_z = fld.Int(
+        load_default=0, metadata={"description": "Maximum displacement in z direction."},
+    )
+
+
 class IPDetectionSchema(argschema.ArgSchema):  # pragma: no cover
+
     """Adjustable parameters to detect IP."""
 
     downsample = fld.Int(
@@ -152,6 +174,9 @@ class ImageJWrapperSchema(argschema.ArgSchema):  # pragma: no cover
         validate=mm.validate.Range(min=1, max=128),
     )
     dataset_xml = fld.String(required=True, metadata={"description": "Input xml dataset definition"})
+    phase_correlation_params = fld.Nested(
+        PhaseCorrelationSchema, required=False, metadata={"description": "Phase correlation parameters"}
+    )
     do_detection = fld.Boolean(required=True, metadata={"description": "Do interest point detection?"})
     ip_detection_params = fld.Nested(
         IPDetectionSchema, required=False, metadata={"description": "Interest point detection parameters"}
@@ -165,6 +190,10 @@ class ImageJWrapperSchema(argschema.ArgSchema):  # pragma: no cover
         required=False,
         metadata={"description": "Registration parameters (do_registrations==True only)"},
         many=True,
+    )
+    do_phase_correlation = fld.Boolean(
+        required=False,
+        metadata={"description": "Do phase correlation for affine only?"},
     )
 
 
@@ -279,12 +308,15 @@ def get_auto_parameters(args: Dict) -> Dict:  # pragma: no cover
 
     process_xml = "../results/bigstitcher.xml"
     macro_ip_det = "../results/macro_ip_det.ijm"
+    macro_phase_corr = "../results/macro_phase_corr.ijm"
+
     return {
         "process_xml": process_xml,
         # Do not use, this is the whole VM at the moment, not what is available for the capsule
         "auto_ncpu": ncpu,
         "auto_memgb": mem_GB,
         "macro_ip_det": macro_ip_det,
+        "macro_phase_corr": macro_phase_corr,
     }
 
 
@@ -306,6 +338,32 @@ def main():  # pragma: no cover
 
     logger.info("Copying input xml %s -> %s", args["dataset_xml"], args["process_xml"])
     shutil.copy(args["dataset_xml"], args["process_xml"])
+
+    if args['do_phase_correlation']:
+        # logger.info("Creating macro for phase correlation", args["do_phase_correlation"])
+        det_params = dict(args["phase_correlation_params"])
+        det_params["process_xml"] = args["process_xml"]
+        det_params["parallel"] = args["parallel"]
+
+        # write phase correlation macro
+        with open(args["macro_phase_corr"], "w") as f:
+            f.write(ImagejMacros.get_macro_phase_correlation(det_params))
+        # run phase correlation
+        r = wrapper_cmd_run(
+            [
+                "ImageJ",
+                "-Dimagej.updater.disableAutocheck=true",
+                "--headless",
+                "--memory",
+                "{memgb}G".format(**args),
+                "--console",
+                "--run",
+                args["macro_phase_corr"]
+            ],
+            logger,
+        )
+    if r != 0:
+        raise RuntimeError("Phase Correlation command failed.")
 
     if args["do_detection"]:
         det_params = dict(args["ip_detection_params"])

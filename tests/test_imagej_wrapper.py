@@ -1,11 +1,10 @@
 """Tests for ImageJ wrapper functions and macro creator class"""
+import argschema
 import contextlib
 import io
 import logging
 import unittest
 from unittest import mock
-
-import argschema
 
 from aind_exaspim_pipeline_utils.imagej_macros import ImagejMacros
 from aind_exaspim_pipeline_utils.imagej_wrapper import (
@@ -92,12 +91,34 @@ class TestMacros(unittest.TestCase):
                 }
             ],
         }
+        example_params_phase_correlation_default = {
+            "session_id": "2023-02-22",
+            "memgb": 55,
+            "parallel": 8,
+            "dataset_xml": "test_dataset.xml",
+            "do_phase_correlation": True,
+            "do_detection": False,
+            "do_registrations": False,
+            "phase_correlation_params": {
+                "downsample": 2,
+                "min_correlation": 0.6,
+                "max_shift_in_x": 10,
+                "max_shift_in_y": 10,
+                "max_shift_in_z": 10,
+                },
+        }
         parser = argschema.ArgSchemaParser(
             schema_type=ImageJWrapperSchema, input_data=example_params_default, args=[]
         )
         self.args = parser.args
 
+        phase_parser = argschema.ArgSchemaParser(
+            schema_type=ImageJWrapperSchema, input_data=example_params_phase_correlation_default, args=[]
+        )
+        self.phase_args = phase_parser.args
+
     def testMacroIPDet(self):
+
         """Test IP Detection macro"""
 
         det_params = dict(self.args["ip_detection_params"])
@@ -129,3 +150,13 @@ class TestMacros(unittest.TestCase):
         reg_params["map_back_views_choice"] = "selected_translation"
         m = ImagejMacros.get_macro_ip_reg(reg_params)
         self.assertRegex(m, "ViewSetupId:5")
+
+    def testMacroPhaseCorrelation(self):
+        """Test Phase Correlation macro"""
+        phase_params = dict(self.phase_args["phase_correlation_params"])
+        phase_params["process_xml"] = self.phase_args["dataset_xml"]
+        phase_params["parallel"] = self.args["parallel"]
+
+        m = ImagejMacros.get_macro_phase_correlation(phase_params)
+        self.assertRegex(m, "select=test_dataset.xml")
+        self.assertNotRegex(m, "viewsetupid_")
