@@ -92,10 +92,26 @@ class TestMacros(unittest.TestCase):
                 }
             ],
         }
+        example_params_phase_correlation_default = {
+            "session_id": "2023-02-22",
+            "memgb": 55,
+            "parallel": 8,
+            "dataset_xml": "test_dataset.xml",
+            "do_phase_correlation": True, 
+            "phase_correlation_params": {
+                "downsample": 2,
+                },
+        }
         parser = argschema.ArgSchemaParser(
             schema_type=ImageJWrapperSchema, input_data=example_params_default, args=[]
         )
         self.args = parser.args
+
+        phase_parser = argschema.ArgSchemaParser(
+            schema_type=ImageJWrapperSchema, input_data=example_params_phase_correlation_default, args=[]
+        )
+        self.phase_args = phase_parser.args
+
 
     def testMacroIPDet(self):
         """Test IP Detection macro"""
@@ -129,3 +145,12 @@ class TestMacros(unittest.TestCase):
         reg_params["map_back_views_choice"] = "selected_translation"
         m = ImagejMacros.get_macro_ip_reg(reg_params)
         self.assertRegex(m, "ViewSetupId:5")
+
+    def testMacroPhaseCorrelation(self):
+        """Test Phase Correlation macro"""
+        phase_params = dict(self.phase_args["ip_registrations_params"][0])
+        phase_params["process_xml"] = self.phase_args["dataset_xml"]
+        m = ImagejMacros.get_macro_phase_correlation(phase_params)
+        self.assertRegex(m, "select=test_dataset.xml")
+        self.assertNotRegex(m, "viewsetupid_")
+
