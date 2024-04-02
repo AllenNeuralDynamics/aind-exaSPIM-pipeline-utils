@@ -1,16 +1,15 @@
-"""Create Neuroglancer links for the alignments."""
-
-# Copied from Jonathan's NG link generator capsule code
+"""Neuroglancer IP visualization as an annotation layer."""
 
 import json
+import os
 from pathlib import Path
 from urllib.parse import urlparse
 
-import s3fs
+import numpy as np
 from ng_link import NgState, link_utils
 from ng_link.parsers import XmlParser
-import numpy as np
-import os
+import s3fs
+import zarr
 
 
 def read_json(json_path: str) -> dict:  # pragma: no cover
@@ -42,6 +41,36 @@ def get_tile_positions(dataset_path: str):  # pragma: no cover
         tile_positions[tile_path.name] = translation
 
     return tile_positions
+
+
+def read_in_n5_ips(tile_setupId, transform_3x4=None):
+    """Read in intereset point coordinates from the n5 binary files.
+    Interest points are not sorted.
+    """
+    n5s = zarr.n5.N5FSStore("../results/interestpoints.n5/")
+    zg = zarr.open(store=n5s, mode="r")
+
+    id = zg[f"tpId_0_viewSetupId_{tile_setupId}/beads/interestpoints/id"]
+    loc = zg[f"tpId_0_viewSetupId_{tile_setupId}/beads/interestpoints/loc"]
+
+    # Now return the first 10 for testing in ng annotation dict
+    if id.ndim < 2 or loc.ndim < 2 or id.shape[0] != loc.shape[0]:
+        raise ValueError(f"n5 ip arrays shape error id.shape={id.shape} loc.shape={loc.shape}")
+
+    P = []
+    N = min(loc.shape[0], 1000)
+    # Read in the interest points from disk in one go
+    loc = np.array(loc[:N])
+    if transform_3x4 is not None:
+        vec = np.ones(4, dtype=float)
+        for i in range(N):
+            vec[:3] = loc[i]
+            v2 = np.matmul(transform_3x4, vec)
+            P.append({'x': v2[2], 'y': v2[1], 'z': v2[0]})
+    else:
+        for i in range(10):
+            P.append({'x': loc[i][2], 'y': loc[i][1], 'z': loc[i][0]})
+    return P
 
 
 def get_tile_positions_s3(dataset_uri: str):  # pragma: no cover
@@ -78,8 +107,11 @@ def get_tile_positions_s3(dataset_uri: str):  # pragma: no cover
 
     return tile_positions
 
+# Copy the relevant bits from create_ng_link.py and create ng link with
+# annotation layer
 
-def create_ng_link(
+
+def create_ng_link_with_annotation(
     dataset_uri: str,
     alignment_output_uri: str,
     xml_path: str = "../results/bigstitcher.xml",
@@ -118,6 +150,9 @@ def create_ng_link(
 
     # Zattrs info
     zattrs_positions = get_tile_positions_s3(dataset_uri)
+
+    # The points do not need the zattrs correction
+    point_net_transforms: dict[int, np.ndarray] = link_utils.calculate_net_transforms(tile_transforms)
 
     # Update Translation -- undo zattrs transform
     for tile_id, tf in tile_transforms.items():
@@ -178,26 +213,55 @@ def create_ng_link(
         final_transform = link_utils.convert_matrix_3x4_to_5x6(net_tf)
 
         sources.append({"url": url, "transform_matrix": final_transform.tolist()})
+        # Mark the corner of each tile
+        # ips = []
+        # vec = np.zeros(4, dtype=float)
+        # vec[3] = 1
+        # vec = np.matmul(point_net_transforms[tile_id], vec)
+        # ips.append({'x': vec[2],'y': vec[1], 'z': vec[0]})
+        ips = read_in_n5_ips(tile_id, point_net_transforms[tile_id])
+        layers.append({
+                "type": "annotation",
+                "source": f"precomputed://ng/tile_{tile_id}/precomputed",
+                "tool": "annotatePoint",
+                "name": f"IPs_{tile_id}",
+                "annotations": ips,
+                # Pass None or delete limits if
+                # you want to include all the points
+                # "limits": [100, 200],  # None # erase line
+            })
 
-    ng_dir, json_name = os.path.split(output_json)
-    if ng_dir:
-        os.makedirs(ng_dir, exist_ok=True)
-    url = urlparse(dataset_uri)
-    if url.scheme != "s3":
-        raise ValueError(f"Dataset URI must be an S3 URI, got {dataset_uri}")
-    bucket_name = url.netloc
+    # ng_dir, json_name = os.path.split(output_json)
+    ng_dir = "ng"
+    json_name = "process_output.json"
+    # url = urlparse(dataset_uri)
+    url = urlparse(alignment_output_uri)
+    # if url.scheme != "s3":
+    #     raise ValueError(f"Dataset URI must be an S3 URI, got {dataset_uri}")
+    # bucket_name = url.netloc
+    bucket_path = f"{url.netloc}{url.path}"
 
     # Generate the link
+    # AnnotationLayer has the assumption that if "source" is a local_path
+    # then it will be replaced by "s3://bucket_path/local_path" and files are
+    # written out to local_path.
+    # So we need to change pwd.
+    os.chdir("../results")
+    if ng_dir:
+        os.makedirs(ng_dir, exist_ok=True)
     neuroglancer_link = NgState(
         input_config=input_config,
         mount_service="s3",
-        bucket_path=bucket_name,
+        bucket_path=bucket_path,
         output_dir=ng_dir,
         json_name=json_name,
     )
     neuroglancer_link.save_state_as_json()
     print(neuroglancer_link.get_url_link())
-    thelink = f"https://neuroglancer-demo.appspot.com/#!{alignment_output_uri}/ng/{json_name}"
+    os.chdir("../code")  # Back to our standard dir
+    # thelink = f"https://neuroglancer-demo.appspot.com/#!{alignment_output_uri}/ng/{json_name}"
+    # Local installation
+    thelink = f"https://aind-neuroglancer-sauujisjxq-uw.a.run.app/#!{alignment_output_uri}/ng/{json_name}"
     with open("../results/ng/ng_link.txt", "a") as f:
         print(thelink, file=f)
     return thelink
