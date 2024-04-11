@@ -62,6 +62,7 @@ zarr_multiscale_converter = "aind_exaspim_pipeline_utils.n5tozarr.n5tozarr_da:za
 create_example_manifest = "aind_exaspim_pipeline_utils.exaspim_manifest:create_example_manifest"
 bigstitcher_log_edge_analysis = "aind_exaspim_pipeline_utils.qc.bigstitcher_log_edge_analysis:main"
 run_trigger_capsule = "aind_exaspim_pipeline_utils.trigger.capsule:capsule_main"
+java_detreg_postprocess = "aind_exaspim_pipeline_utils.java_utils:java_detreg_postprocess_main"
 
 [tool.setuptools.dynamic]
 version = {attr = "aind_exaspim_pipeline_utils.__version__"}

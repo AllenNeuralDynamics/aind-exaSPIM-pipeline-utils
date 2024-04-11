@@ -28,6 +28,9 @@ from ..exaspim_manifest import (
     ExaspimProcessingPipeline,
     N5toZarrParameters,
     ZarrMultiscaleParameters,
+    SparkInterestPointDetections,
+    SparkGeometricDescriptorMatching,
+    Solver,
 )
 
 logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M")
@@ -458,6 +461,7 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
         ip_limitation_choice="brightest",
         maximum_number_of_detections=150000,
     )
+
     ip_reg_translation: IPRegistrationParameters = IPRegistrationParameters(
         # dataset_xml=capsule_xml_path,
         IJwrap=def_ij_wrapper_parameters,
@@ -506,6 +510,27 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
         name=metadata["data_description"].get("name"),
         xml_creation=xml_creation,
         ip_detection=def_ip_detection_parameters,
+        spark_ip_detections=SparkInterestPointDetections(overlappingOnly=True),
+        spark_geometric_descriptor_matching_tr=SparkGeometricDescriptorMatching(
+            clearCorrespondences=True,
+            transformationModel="TRANSLATION",
+            regularizationModel="NONE",
+        ),
+        solver_tr=Solver(
+            transformationModel="TRANSLATION",
+            regularizationModel="NONE",
+            fixedViews=["0,7"],
+        ),
+        spark_geometric_descriptor_matching_aff=SparkGeometricDescriptorMatching(
+            clearCorrespondences=True,
+            transformationModel="AFFINE",
+            regularizationModel="RIGID",
+        ),
+        solver_aff=Solver(
+            transformationModel="AFFINE",
+            regularizationModel="RIGID",
+            fixedViews=["0,7"],
+        ),
         ip_registrations=[ip_reg_translation, ip_reg_affine],
         n5_to_zarr=n5_to_zarr,
         zarr_multiscale=zarr_multiscale,
