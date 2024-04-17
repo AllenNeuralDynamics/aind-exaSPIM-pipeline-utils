@@ -60,8 +60,8 @@ def parse_args() -> argparse.Namespace:  # pragma: no cover
     parser.add_argument(
         "--raw_data_uri",
         help="S3 URI Top-level location of input exaSPIM"
-             "dataset in aind-open-data if different from exaspim_data_uri "
-             "(ie. flat-fielded)",
+        "dataset in aind-open-data if different from exaspim_data_uri "
+        "(ie. flat-fielded)",
     )
     parser.add_argument(
         "--manifest_output_prefix_uri", help="S3 prefix URI for processing manifest upload", required=True
@@ -69,15 +69,17 @@ def parse_args() -> argparse.Namespace:  # pragma: no cover
     parser.add_argument(
         "--pipeline_timestamp",
         help="Pipeline timestamp to be appended to folder names. "
-             "Defaults to current local time as YYYY-MM-DD_HH-MM-SS",
+        "Defaults to current local time as YYYY-MM-DD_HH-MM-SS",
     )
     parser.add_argument("--template_manifest", help="Template manifest json file to override defaults.")
 
     parser.add_argument("--xml_capsule_id", help="XML converter capsule id. Runs it if present.")
     parser.add_argument("--ij_capsule_id", help="ImageJ wrapper capsule id. Starts it if present.")
-    parser.add_argument("--channel",
-                        help="Channel name to process. Must be one of the wavelengths in the metadata. "
-                             "Without the 'ch' prefix.")
+    parser.add_argument(
+        "--channel",
+        help="Channel name to process. Must be one of the wavelengths in the metadata. "
+        "Without the 'ch' prefix.",
+    )
     args = parser.parse_args()
     return args
 
@@ -150,8 +152,9 @@ def get_dataset_metadata(args) -> dict:  # pragma: no cover
     if m:
         fname_subject_id = m.group(1)
     else:
-        raise ValueError("Cannot extract subject id from the input dataset prefix {}".format(
-            args.input_dataset_prefix))
+        raise ValueError(
+            "Cannot extract subject id from the input dataset prefix {}".format(args.input_dataset_prefix)
+        )
 
     if not metadata["subject"]:
         logger.warning("No subject metadata. Using file path pattern.")
@@ -185,12 +188,13 @@ def get_dataset_metadata(args) -> dict:  # pragma: no cover
 
 
 def register_or_get_dataset_as_CO_data_asset(
-        dataset_name, dataset_bucket, dataset_prefix, co_client
+    dataset_name, dataset_bucket, dataset_prefix, co_client
 ):  # pragma: no cover
     """Query the input dataset for existence and register it if not found.
 
     At the moment the dataset_name and dataset_prefix are the same in aind-open-data.
     """
+    logger.info(f"Query for dataset {dataset_name} in CO.")
     query_response = co_client.search_data_assets(query=f"name:{dataset_name}")
     if query_response.status_code != 200:
         raise RuntimeError("Cannot query data assets")
@@ -199,7 +203,7 @@ def register_or_get_dataset_as_CO_data_asset(
     for r in results:
         if r["name"] == dataset_name:
             # Check that it points to the same bucket and prefix
-            sourceBucket = r.get("sourceBucket", {})
+            sourceBucket = r.get("source_bucket", {})
             if sourceBucket.get("prefix") == dataset_prefix and sourceBucket.get("bucket") == dataset_bucket:
                 logger.info(f"Found dataset {dataset_name} in CO as {r['id']}")
                 return r["id"]
@@ -375,9 +379,7 @@ def validate_channel_name(metadata: dict, args: argparse.Namespace) -> str:  # p
     logger.info(f"Found channels in acquisition metadata: {set(ch_names)}")
     if args.channel:
         if args.channel not in ch_names:
-            raise ValueError(
-                f"Channel name {args.channel} not found in the metadata: {set(ch_names)}."
-            )
+            raise ValueError(f"Channel name {args.channel} not found in the metadata: {set(ch_names)}.")
     else:
         args.channel = ch_names[0]
     logger.info(f"Processing selected channel: {args.channel}")
@@ -385,10 +387,10 @@ def validate_channel_name(metadata: dict, args: argparse.Namespace) -> str:  # p
 
 
 def recursive_assign_items(
-        dst: Union[collections.abc.Mapping, list],
-        key_dst: Union[str, int],
-        src: Union[collections.abc.Mapping, list],
-        key_src: Union[str, int],
+    dst: Union[collections.abc.Mapping, list],
+    key_dst: Union[str, int],
+    src: Union[collections.abc.Mapping, list],
+    key_src: Union[str, int],
 ) -> None:
     """Recursively assign items between dictionaries or lists.
 
@@ -415,7 +417,7 @@ def recursive_assign_items(
 
 
 def recursive_update_mapping(
-        dst: collections.abc.Mapping, src: collections.abc.Mapping
+    dst: collections.abc.Mapping, src: collections.abc.Mapping
 ) -> collections.abc.Mapping:
     """Recursively update a dictionary-like object.
 
@@ -493,8 +495,9 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
         input_uri=f"s3://{args.fusion_output_bucket}/{args.fusion_output_prefix}/fused.zarr/",
     )
 
-    xml_creation: XMLCreationParameters = XMLCreationParameters(ch_name=ch_name,
-                                                                input_uri=args.exaspim_data_uri)
+    xml_creation: XMLCreationParameters = XMLCreationParameters(
+        ch_name=ch_name, input_uri=args.exaspim_data_uri
+    )
 
     processing_manifest: ExaspimProcessingPipeline = ExaspimProcessingPipeline(
         creation_time=args.pipeline_timestamp,
@@ -521,14 +524,14 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
 def create_and_upload_emr_config(args, manifest: ExaspimProcessingPipeline):  # pragma: no cover
     """Create EMR command line parameters for the fusion of the present alignment run."""
     config = (
-        f"[\"-x\", \"{args.alignment_output_uri}"
-        f"bigstitcher_emr_{manifest.subject_id}_{manifest.pipeline_suffix}_0.xml\",\n"
-        f"\"--outS3Bucket\", \"{args.fusion_output_bucket}\", "
-        f"\"-o\", \"/{args.fusion_output_prefix}/fused.n5\",\n"
-        f"\"--bdv\", \"0,0\", "
-        f"\"--xmlout\", \"s3://{args.fusion_output_bucket}/{args.fusion_output_prefix}/fused.xml\", "
-        "\"--storage\", \"N5\", \"--UINT16\", \"--minIntensity=0\", "
-        "\"--maxIntensity=65535\", \"--preserveAnisotropy\" ]\n"
+        f'["-x", "{args.alignment_output_uri}'
+        f'bigstitcher_emr_{manifest.subject_id}_{manifest.pipeline_suffix}_0.xml",\n'
+        f'"--outS3Bucket", "{args.fusion_output_bucket}", '
+        f'"-o", "/{args.fusion_output_prefix}/fused.n5",\n'
+        f'"--bdv", "0,0", '
+        f'"--xmlout", "s3://{args.fusion_output_bucket}/{args.fusion_output_prefix}/fused.xml", '
+        '"--storage", "N5", "--UINT16", "--minIntensity=0", '
+        '"--maxIntensity=65535", "--preserveAnisotropy" ]\n'
     )
     with open("../results/emr_fusion_config.txt", "w") as f:
         f.write(config)
