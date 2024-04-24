@@ -43,7 +43,7 @@ def get_tile_positions(dataset_path: str):  # pragma: no cover
     return tile_positions
 
 
-def read_in_n5_ips(tile_setupId, transform_3x4=None):
+def read_in_n5_ips(tile_setupId, transform_3x4=None):  # pragma: no cover
     """Read in intereset point coordinates from the n5 binary files.
     Interest points are not sorted.
     """
