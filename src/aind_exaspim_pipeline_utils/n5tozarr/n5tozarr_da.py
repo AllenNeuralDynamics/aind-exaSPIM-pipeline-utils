@@ -134,7 +134,7 @@ def run_n5tozarr(
     arr = dask.array.from_array(zg["s0"], chunks=zg["s0"].chunks)
     arr = chunk_utils.ensure_array_5d(arr)
     LOGGER.debug("Re-chunk dask array to desired output chunk size.")
-    arr = arr.rechunk((1, 1, 256, 256, 256))
+    arr = arr.rechunk((1, 1, 128, 256, 256))
 
     LOGGER.info(f"Input array: {arr}")
     LOGGER.info(f"Input array size: {arr.nbytes / 2 ** 20} MiB")
@@ -196,7 +196,7 @@ def run_zarr_multiscale(
         zg["0"], chunks=zg["0"].chunks
     )  # For metadata writing we need the full resolution shape
     arrZero = chunk_utils.ensure_array_5d(arrZero)
-    arrZero = arrZero.rechunk((1, 1, 256, 256, 256))
+    arrZero = arrZero.rechunk((1, 1, 128, 256, 256))
 
     LOGGER.info(f"Full resolution array: {arrZero}")
     LOGGER.info(f"Full resolution input array size: {arrZero.nbytes / 2 ** 20} MiB")
@@ -226,7 +226,7 @@ def run_zarr_multiscale(
         LOGGER.info("Initialize dask source array from Zarr source level %s", prevLevel)
         arr = dask.array.from_array(zg[prevLevel], chunks=zg[prevLevel].chunks)
         arr = chunk_utils.ensure_array_5d(arr)
-        arr = arr.rechunk((1, 1, 256, 256, 256))
+        arr = arr.rechunk((1, 1, 128, 256, 256))
     else:
         arr = arrZero
 
