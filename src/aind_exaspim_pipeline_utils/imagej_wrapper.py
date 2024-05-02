@@ -451,7 +451,7 @@ def create_edge_connectivity_report(num_registrations: int) -> None:  # pragma: 
             with open(f"../results/ip_registration{i:d}.log", "r") as f:
                 lines = f.readlines()
             # Extract the tile pair numbers from failed RANSAC correspondence finding log messages
-            blocks = bigstitcher_log_edge_analysis.get_unfitted_tile_pairs(lines)
+            blocks = bigstitcher_log_edge_analysis.get_unfitted_tile_pairs(lines, multiblock=False)
             # Create a visualization of the failed edges
             # Write the visualization to a file
             bigstitcher_log_edge_analysis.print_visualization(blocks, file=f_report)
