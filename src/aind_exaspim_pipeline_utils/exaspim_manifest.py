@@ -346,18 +346,18 @@ class Solver(AindModel):  # pragma: no cover
         "beads", title="label of the interest points used for solve if using interest points (e.g. beads)"
     )
     globalOptType: str = Field(
-        "TWO_ROUND_ITERATIVE",
+        "TWO_ROUND_SIMPLE",
         title="global optimization method; ONE_ROUND_SIMPLE, ONE_ROUND_ITERATIVE, TWO_ROUND_SIMPLE or "
         "TWO_ROUND_ITERATIVE. Two round handles unconnected tiles, iterative handles wrong links "
         "(default: ONE_ROUND_SIMPLE)",
     )
     relativeThreshold: float = Field(
-        0.0,
+        3.5,
         title="relative error threshold for iterative solvers, how many times worse than the average error "
         "a link needs to be (default: 3.5)",
     )
     absoluteThreshold: float = Field(
-        0.0, title="absoluted error threshold for iterative solver to drop a link in pixels (default: 7.0)"
+        7.0, title="absoluted error threshold for iterative solver to drop a link in pixels (default: 7.0)"
     )
     maxError: float = Field(5.0, title="max error for the solve (default: 5.0)")
     maxIterations: int = Field(10000, title="max number of iterations for solve (default: 10,000)")
