@@ -552,7 +552,25 @@ def create_and_upload_emr_config(args, manifest: ExaspimProcessingPipeline):  # 
         f'["-x", "{args.alignment_output_uri}'
         f'bigstitcher_emr_{manifest.subject_id}_{manifest.pipeline_suffix}_0.xml",\n'
         f'"--outS3Bucket", "{args.fusion_output_bucket}", '
-        f'"-o", "/{args.fusion_output_prefix}/fused.n5",\n'
+        f'"-o", "{args.fusion_output_prefix}/fused.n5",\n'
+        f'"--bdv", "0,0", '
+        f'"--xmlout", "s3://{args.fusion_output_bucket}/{args.fusion_output_prefix}/fused.xml", '
+        '"--storage", "N5", "--UINT16", "--minIntensity=0", '
+        '"--maxIntensity=65535", "--preserveAnisotropy" ]\n'
+    )
+    with open("../results/emr_fusion_config_ijwrap.txt", "w") as f:
+        f.write(config)
+    logger.info("Uploading emr_fusion_config.txt to bucket {}".format(args.manifest_bucket_name))
+    s3 = boto3.client("s3")  # Authentication should be available in the environment
+    object_name = "/".join((args.manifest_path, "emr_fusion_config_ijwrap.txt"))
+    s3.upload_file("../results/emr_fusion_config_ijwrap.txt", args.manifest_bucket_name, object_name)
+
+    # For the directS3 version which should be now the default
+    config = (
+        f'["-x", "{args.alignment_output_uri}'
+        f'bigstitcher.xml",\n'
+        f'"--outS3Bucket", "{args.fusion_output_bucket}", '
+        f'"-o", "{args.fusion_output_prefix}/fused.n5",\n'
         f'"--bdv", "0,0", '
         f'"--xmlout", "s3://{args.fusion_output_bucket}/{args.fusion_output_prefix}/fused.xml", '
         '"--storage", "N5", "--UINT16", "--minIntensity=0", '
@@ -561,9 +579,8 @@ def create_and_upload_emr_config(args, manifest: ExaspimProcessingPipeline):  # 
     with open("../results/emr_fusion_config.txt", "w") as f:
         f.write(config)
     logger.info("Uploading emr_fusion_config.txt to bucket {}".format(args.manifest_bucket_name))
-    s3 = boto3.client("s3")  # Authentication should be available in the environment
     object_name = "/".join((args.manifest_path, "emr_fusion_config.txt"))
-    s3.upload_file("../results/emr_fusion_config.txt", args.manifest_bucket_name, object_name)
+    s3.upload_file("../results/emr_fusion_config.txt", args.manifest_bucket_name,object_name)
 
 
 def upload_manifest(args, manifest: ExaspimProcessingPipeline):  # pragma: no cover
