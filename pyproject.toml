@@ -21,6 +21,7 @@ dependencies = [
     's3fs',
     'pydantic',
     'psutil',
+    'matplotlib',
     'aind-data-schema',
     'aind-codeocean-api==0.3.0',
     'aind-ng-link>=1.0.15',
@@ -63,6 +64,8 @@ create_example_manifest = "aind_exaspim_pipeline_utils.exaspim_manifest:create_e
 bigstitcher_log_edge_analysis = "aind_exaspim_pipeline_utils.qc.bigstitcher_log_edge_analysis:main"
 run_trigger_capsule = "aind_exaspim_pipeline_utils.trigger.capsule:capsule_main"
 java_detreg_postprocess = "aind_exaspim_pipeline_utils.java_utils:java_detreg_postprocess_main"
+run_tr_density_plot = "aind_exaspim_pipeline_utils.qc.ip_density:run_tr_density_plot"
+run_aff_density_plot = "aind_exaspim_pipeline_utils.qc.ip_density:run_aff_density_plot"
 
 [tool.setuptools.dynamic]
 version = {attr = "aind_exaspim_pipeline_utils.__version__"}
