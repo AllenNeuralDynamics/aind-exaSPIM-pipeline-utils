@@ -5,7 +5,9 @@ from typing import Iterable, List, Tuple
 import numpy as np
 
 
-def get_unfitted_tile_pairs(lines: Iterable[str]) -> List[List[Tuple[int, int]]]:  # pragma: no cover
+def get_unfitted_tile_pairs(
+    lines: Iterable[str], multiblock: bool = True
+) -> List[List[Tuple[int, int]]]:  # pragma: no cover
     """Extract tile pair numbers from log lines of failed RANSAC correspondence
     finding.
 
@@ -34,7 +36,7 @@ def get_unfitted_tile_pairs(lines: Iterable[str]) -> List[List[Tuple[int, int]]]
         # RANSAC result lines
         m = re.match(".*\\[TP=(\\d+) ViewId=(\\d+) >>> TP=(\\d+) ViewId=(\\d+)\\]: (\\w+)", line)
         if m:
-            if m.group(5) == "NO" or m.group(5) == "Not":  # Failed RANSAC
+            if m.group(5) == "NO" or m.group(5) == "Not" or m.group(5) == "Model":  # Failed RANSAC
                 a = int(m.group(4))
                 b = int(m.group(2))
             else:
@@ -42,7 +44,8 @@ def get_unfitted_tile_pairs(lines: Iterable[str]) -> List[List[Tuple[int, int]]]
                 continue
         else:
             # Non-RANSAC line
-            newblock = True
+            if multiblock:
+                newblock = True
             continue
         if b < a:
             a, b = b, a
