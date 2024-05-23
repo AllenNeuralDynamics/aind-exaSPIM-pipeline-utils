@@ -3,6 +3,9 @@ import unittest
 import numpy as np
 import json
 import xml.etree.ElementTree as ET
+
+import xmltodict
+
 from aind_exaspim_pipeline_utils.qc.affine_transformation import AffineTransformation
 
 JSON_TRANSFORMATION = """
@@ -190,6 +193,17 @@ class TestAffineTransformation(unittest.TestCase):
         self.assertEqual(
             aff.text, "1.0 0.0 0.0 -40.0 0.0 2.0 0.0 -130.0 0.0 0.0 1.0 20.0"
         )
+
+    def test_xmldict_parsing(self):
+        """Parse xml via xmldict"""
+        xmldict = xmltodict.parse(XML_TRANSFORMATION)
+        vrl = xmldict["SpimData"]["ViewRegistrations"]["ViewRegistration"]
+        if not isinstance(vrl, list):
+            vrl = [vrl, ]
+        A = AffineTransformation.create_from_xmldict_ViewRegistration(vrl[0])
+        B = AffineTransformation(scale=[1, 2, 1], translation=[-40, -130, 20])
+        self.assertTrue(np.allclose(A.get_matrix(), B.get_matrix()))
+        self.assertTrue(np.allclose(A.get_translation(), B.get_translation()))
 
 
 if __name__ == "__main__":

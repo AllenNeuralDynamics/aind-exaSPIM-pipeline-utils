@@ -1,5 +1,8 @@
 """Affine transformations represented as numpy matrices."""
 from __future__ import annotations
+
+from collections import OrderedDict
+
 import numpy as np
 from typing import Optional, Union, Dict, List, Any
 import numpy.typing as npt
@@ -325,6 +328,37 @@ class AffineTransformation:
                 raise ValueError("Unknown transformation type, not affine.")
             aff = tr.find("affine")
             A = np.array([float(x) for x in aff.text.strip().split()], dtype=float).reshape(3, 4)
+            T.right_compose(AffineTransformation(array=A[:, :3], translation=A[:, 3]))
+        return T
+
+    @staticmethod
+    def create_from_xmldict_ViewRegistration(viewreg: OrderedDict) -> AffineTransformation:
+        """Parse a ViewRegistration xml element into an AffineTransformation instance.
+
+        Parse all ViewTransform subelements and compose them into one transformation.
+        Composition order is left-to-right, ie. the last transformation to be applied first.
+
+        Does not alter the order of axes. Consider that BigDataViewer and ngff have reversed axis order.
+
+        Parameters
+        ----------
+        viewreg: OrderedDict
+          The "<ViewRegistration> section that contains a number of affine transformations.
+
+        Returns
+        -------
+          New 3 dimensional instance. Defaults to identity if there are no ``ViewTransform`` entries.
+        """
+        T = AffineTransformation()
+        if isinstance(viewreg["ViewTransform"], list):
+            vtl = viewreg["ViewTransform"]
+        else:
+            vtl = [viewreg["ViewTransform"], ]
+        for tr in vtl:
+            if tr["@type"] != "affine":
+                raise ValueError("Unknown transformation type, not affine.")
+            aff = tr["affine"]  # The <affine> entry as text
+            A = np.array([float(x) for x in aff.strip().split()], dtype=float).reshape(3, 4)
             T.right_compose(AffineTransformation(array=A[:, :3], translation=A[:, 3]))
         return T
 
