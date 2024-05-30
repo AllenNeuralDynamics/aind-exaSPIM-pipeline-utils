@@ -66,13 +66,24 @@ class Bbox:  # pragma: no cover
         return Bbox(bleft, tright)
 
     def getcorners(self) -> tuple[np.ndarray, np.ndarray]:
-        """Return the bottom left and top right corners of the bounding box."""
+        """Return the bottom left and top right corners of the bounding box.
+
+        Returns
+        -------
+        bleft, tright : np.ndarray (dim,)
+            The bottom left and top right corners of the bounding box. Tuple of 2 arrays.
+        """
         return self.bleft, self.tright
 
     def getallcorners(self):
         """Returns all corners of the bounding box.
 
         This works only for 3D boxes.
+
+        Returns
+        -------
+        corners : np.ndarray (8, 3)
+            The 8 corners of the bounding box.
         """
         corners = np.array(
             [
@@ -95,10 +106,7 @@ class Bbox:  # pragma: no cover
         return tuple(slice(x, y) for x, y in zip(self.bleft, self.tright))
 
     def contains(self, points: npt.ArrayLike):
-        """Check if a set of points is contained in the bounding box.
-
-
-        """
+        """Check if a set of points is contained in the bounding box."""
         points = np.atleast_2d(points)
         return np.all(points >= self.bleft, axis=1) & np.all(points < self.tright, axis=1)
 
