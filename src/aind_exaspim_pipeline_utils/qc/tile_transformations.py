@@ -159,7 +159,9 @@ def read_tile_transformations(xmlRegistrations: OrderedDict) -> dict:  # pragma:
     vrl = xmlRegistrations["ViewRegistration"]
     if not isinstance(vrl, list):
         # One entry case
-        vrl = [vrl, ]
+        vrl = [
+            vrl,
+        ]
     for xml_reg in vrl:
         x = int(xml_reg["@setup"])
         tp = int(xml_reg["@timepoint"])

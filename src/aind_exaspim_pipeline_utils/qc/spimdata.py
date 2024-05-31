@@ -2,15 +2,17 @@
 import copy
 import logging
 from collections import OrderedDict
-from typing import Dict
+from typing import Dict, Tuple, List
 
 import numpy as np
 import zarr
 
 LOGGER = logging.getLogger("spimdata")
 
+
 class ZarrImageLoader:
     """The base class to read-in ImageLoader section of the SpimData XML file."""
+
     def __init__(self, xmlImageLoader: OrderedDict, basePath: str = None):
         """Initialize the ImageLoader object.
 
@@ -32,7 +34,7 @@ class ZarrImageLoader:
     def validate_imageloader_format(self) -> None:
         """Validate the ImageLoader section of the xml."""
         if self.xmlImageLoader["@format"] != "bdv.multimg.zarr":
-            raise ValueError("Only zarr format is supported")
+            raise ValueError("This class is for zarr image loading only.")
 
     def init_tile_paths(self) -> Dict[int, str]:
         """Initialize the internal tile path dictionary."""
@@ -45,9 +47,11 @@ class ZarrImageLoader:
 
         zgl = self.xmlImageLoader["zgroups"]["zgroup"]
         if not isinstance(zgl, list):
-            zgl = [self.xmlImageLoader["zgroups"]["zgroup"], ]
+            zgl = [
+                zgl,
+            ]
         for zgroup in zgl:
-            tileId =  int(zgroup["@setup"])
+            tileId = int(zgroup["@setup"])
             tile_paths[tileId] = zpath + "/" + zgroup["path"].strip("/")
         return tile_paths
 
@@ -63,8 +67,7 @@ class ZarrImageLoader:
         """
         return self.tile_zarr_paths[tileId]
 
-
-    def get_tile_xyz_size(self, tileId: int, level: int):  # pragma: no cover
+    def get_tile_zarr_xyz_size(self, tileId: int, level: int):  # pragma: no cover
         """Return the x,y,z size of the level downsampled version of the image.
 
         The value is read from the zarr storage.
@@ -81,8 +84,8 @@ class ZarrImageLoader:
         z = zarr.open_group(zgpath, mode="r")
         return z[f"{level}"].shape[-3:][::-1]
 
-    def get_tile_slice(self,
-        tileId: int, level: int, xyz_slices: tuple[slice, slice, slice]
+    def get_tile_slice(
+        self, tileId: int, level: int, xyz_slices: tuple[slice, slice, slice]
     ) -> np.ndarray:  # pragma: no cover
         """Return the x,y,z array cutout of the level downsampled version of the image.
 
@@ -110,3 +113,122 @@ class ZarrImageLoader:
             ::-1
         ]  # The zarr array has axis order of t,c,z,y,x
         return np.array(z[f"{level}"][tczyx_slice]).transpose()
+
+
+class SplitImageLoader:
+    """The base class to read-in SplitImageLoader section of the SpimData XML file."""
+
+    def __init__(self, xmlSplitImageLoader: OrderedDict, basePath: str = None):
+        """Initialize the SplitImageLoader object.
+
+        Makes an internal copy of the xmlDict.
+
+        Parameters
+        ----------
+        xmlSplitImageLoader: OrderedDict
+            The xml file outer <ImageLoader> section as an OrderedDict.
+        """
+        self.xmlSplitImageLoader = copy.deepcopy(xmlSplitImageLoader)
+        self.validate_split_imageloader_format()
+        self.basePath = basePath  # Base path may be necessary for the inner loader
+        self.innerLoader = ZarrImageLoader(self.xmlSplitImageLoader["ImageLoader"], basePath=basePath)
+        # The mapping of the split tile ids to the inner tile ids
+        self.tileIdMapping: Dict[int, int] = {}
+        self.tileIdReverseMapping: Dict[int, List[int]] = {}
+        # The mapping of the new ids to the min and max coordinates in the inner tile
+        self.tileSplitMapping: Dict[int, Tuple[np.ndarray, np.ndarray]] = {}
+        self.tileIdMapping, self.tileIdReverseMapping, self.tileSplitMapping = self.init_tile_mapping()
+
+    def init_tile_mapping(self) -> Tuple[Dict, Dict]:
+        """Initialize the internal tile mapping dictionary."""
+        tile_split_mapping = OrderedDict()
+        tile_id_mapping = OrderedDict()
+        tile_reverse_mapping = dict()
+        setup_id_defs = self.xmlSplitImageLoader["setupIds"]["setupId"]
+        if not isinstance(setup_id_defs, list):
+            setup_id_defs = [
+                setup_id_defs,
+            ]
+        for id_def in setup_id_defs:
+            newId = int(id_def["NewId"])
+            oldId = int(id_def["OldId"])
+            if oldId not in tile_reverse_mapping:
+                tile_reverse_mapping[oldId] = []
+            tile_reverse_mapping[oldId].append(newId)
+            if newId in tile_split_mapping:
+                raise ValueError(f"Tile id {newId} is already in the mapping.")
+            mincoords = np.array([int(x) for x in id_def["min"].strip().split()], dtype=int)
+            maxcoords = np.array([int(x) for x in id_def["max"].strip().split()], dtype=int)
+            tile_id_mapping[newId] = oldId
+            tile_split_mapping[newId] = (mincoords, maxcoords)
+        for x in tile_reverse_mapping:
+            tile_reverse_mapping[x] = np.array(tile_reverse_mapping[x])
+        return tile_id_mapping, tile_reverse_mapping, tile_split_mapping
+
+    def validate_split_imageloader_format(self) -> None:
+        """Validate the SplitImageLoader section of the xml."""
+        if self.xmlSplitImageLoader["@format"] != "split.viewerimgloader":
+            raise ValueError("This class is for split image loading only.")
+
+    def create_grid_map(self, xyz_grid_size: Tuple[int, int, int]) -> Dict[int, np.ndarray]:
+        """Organize the old->new tile ids mapping onto an xyz grid per each old tile id.
+
+        Assume that the newIds are increasing monotonically per OldId, if not, raises ValueError.
+        Assume that the newIds are fastest changing by x, then y, then z.
+
+        Returns
+        -------
+        grid_map: Dict[int,np.ndarray]
+            The grid mapping of the new tile ids per old tile id.
+            Each array element has shape xyz_grid, ie. axis order is x,y,z.
+        """
+        grid_map = {}
+        n_subtiles = xyz_grid_size[0] * xyz_grid_size[1] * xyz_grid_size[2]
+        for oldId, newIds in self.tileIdReverseMapping.items():
+            if len(newIds) != n_subtiles:
+                raise ValueError(f"NewIds for oldId {oldId} do not match the xyz_grid_size.")
+            if not np.all(np.diff(newIds) == 1):
+                raise ValueError(f"NewIds for oldId {oldId} are not sequential.")
+            # x is the fastest changing index
+            grid_map[oldId] = np.array(newIds).reshape(xyz_grid_size, order="F")
+        return grid_map
+
+    def get_tile_slice(
+        self, tileId: int, level: int, xyz_slices: tuple[slice, slice, slice]
+    ) -> np.ndarray:  # pragma: no cover
+        """Return the x,y,z array cutout of the level downsampled version of the image.
+
+        Initiates the loading of the given slice from the zarr array and returns as an ndarray.
+
+        The returned array has axis order of x,y,z.
+
+        Parameters
+        ----------
+        tileId: int
+            The tile id.
+        level: int
+            The downsampling level of the image pyramid to read from (0,1,2,3,4)
+        xyz_slices: tuple[slice, slice, slice]
+            The x,y,z slices to read from the image, at the given level.
+        """
+        # Read in the zarr and get the slice
+        factor = 1 << level
+        min_offsets, max_offsets = self.tileSplitMapping[tileId]
+        inner_slices = []
+        for i, s in enumerate(xyz_slices):
+            start, stop, step = s.start, s.stop, s.step
+            dscale_min_offset = min_offsets[i] // factor
+            dscale_max_offset = max_offsets[i] // factor
+            if start is not None:
+                if start < 0:
+                    start += dscale_max_offset
+                else:
+                    start += dscale_min_offset
+            if stop is not None:
+                if stop < 0:
+                    stop += dscale_max_offset
+                else:
+                    stop += dscale_min_offset
+            inner_slices.append(slice(start, stop, step))
+
+        return self.innerLoader.get_tile_slice(self.tileIdMapping[tileId], level, tuple(inner_slices))

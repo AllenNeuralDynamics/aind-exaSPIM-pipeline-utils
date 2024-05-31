@@ -353,7 +353,9 @@ class AffineTransformation:
         if isinstance(viewreg["ViewTransform"], list):
             vtl = viewreg["ViewTransform"]
         else:
-            vtl = [viewreg["ViewTransform"], ]
+            vtl = [
+                viewreg["ViewTransform"],
+            ]
         for tr in vtl:
             if tr["@type"] != "affine":
                 raise ValueError("Unknown transformation type, not affine.")
