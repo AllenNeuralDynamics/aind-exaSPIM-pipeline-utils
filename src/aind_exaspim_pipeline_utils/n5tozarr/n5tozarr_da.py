@@ -127,11 +127,17 @@ def run_n5tozarr(
     voxel_sizes_zyx: tuple of `float`
         Voxel size in microns in the input (full resolution) dataset
     """
-    LOGGER.debug("Initialize source N5 store")
-    n5s = zarr.n5.N5FSStore(input_uri)
-    zg = zarr.open(store=n5s, mode="r")
-    LOGGER.debug("Initialize dask array from N5 source")
-    arr = dask.array.from_array(zg["s0"], chunks=zg["s0"].chunks)
+    # LOGGER.debug("Initialize source N5 store")
+     zg = zarr.open_group(input_uri, mode="r")
+    LOGGER.info("Get dask array from Zarr source for full resolution")
+    arr = dask.array.from_array(
+        zg["0"], chunks=zg["0"].chunks
+    )  # For metadata writing we need the full resolution shape
+
+    # n5s = zarr.n5.N5FSStore(input_uri)
+    # zg = zarr.open(store=n5s, mode="r")
+    # LOGGER.debug("Initialize dask array from N5 source")
+    # arr = dask.array.from_array(zg["s0"], chunks=zg["s0"].chunks)
     arr = chunk_utils.ensure_array_5d(arr)
     LOGGER.debug("Re-chunk dask array to desired output chunk size.")
     arr = arr.rechunk((1, 1, 128, 256, 256))
