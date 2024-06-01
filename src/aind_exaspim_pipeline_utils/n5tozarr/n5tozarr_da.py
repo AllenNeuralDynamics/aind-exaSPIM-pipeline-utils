@@ -128,7 +128,7 @@ def run_n5tozarr(
         Voxel size in microns in the input (full resolution) dataset
     """
     # LOGGER.debug("Initialize source N5 store")
-     zg = zarr.open_group(input_uri, mode="r")
+    zg = zarr.open_group(input_uri, mode="r")
     LOGGER.info("Get dask array from Zarr source for full resolution")
     arr = dask.array.from_array(
         zg["0"], chunks=zg["0"].chunks
