@@ -14,6 +14,7 @@ import pandas as pd
 
 from .affine_transformation import AffineTransformation  # pragma: no cover
 from .bbox import Bbox  # pragma: no cover
+from .spimdata import ImageLoaderABC  # pragma: no cover
 
 LOGGER = logging.getLogger("tile_transforms")  # pragma: no cover
 
@@ -67,53 +68,53 @@ def get_tile_zarr_image_path(tileId: int, xml_dict: OrderedDict) -> str:  # prag
     return zpath
 
 
-def get_tile_slice(
-    zgpath: str, level: int, xyz_slices: tuple[slice, slice, slice]
-) -> np.ndarray:  # pragma: no cover
-    """Return the x,y,z array cutout of the level downsampled version of the image.
+# def get_tile_slice(
+#     zgpath: str, level: int, xyz_slices: tuple[slice, slice, slice]
+# ) -> np.ndarray:  # pragma: no cover
+#     """Return the x,y,z array cutout of the level downsampled version of the image.
+#
+#     Initiates the loading of the given slice from the zarr array and returns as an ndarray.
+#
+#     The returned array has axis order of x,y,z.
+#
+#     Parameters
+#     ----------
+#     zgpath: str
+#         The path to the zarr group containing the image data
+#     level: int
+#         The downsampling level of the image pyramid to read from (0,1,2,3,4)
+#     xyz_slices: tuple[slice, slice, slice]
+#         The x,y,z slices to read from the image, at the given level.
+#     """
+#     # Read in the zarr and get the slice
+#     LOGGER.info(f"Reading in {zgpath} slices {xyz_slices}")
+#     z = zarr.open_group(zgpath, mode="r")
+#     tczyx_slice = (
+#         0,
+#         0,
+#     ) + xyz_slices[
+#         ::-1
+#     ]  # The zarr array has axis order of t,c,z,y,x
+#     return np.array(z[f"{level}"][tczyx_slice]).transpose()
 
-    Initiates the loading of the given slice from the zarr array and returns as an ndarray.
 
-    The returned array has axis order of x,y,z.
-
-    Parameters
-    ----------
-    zgpath: str
-        The path to the zarr group containing the image data
-    level: int
-        The downsampling level of the image pyramid to read from (0,1,2,3,4)
-    xyz_slices: tuple[slice, slice, slice]
-        The x,y,z slices to read from the image, at the given level.
-    """
-    # Read in the zarr and get the slice
-    LOGGER.info(f"Reading in {zgpath} slices {xyz_slices}")
-    z = zarr.open_group(zgpath, mode="r")
-    tczyx_slice = (
-        0,
-        0,
-    ) + xyz_slices[
-        ::-1
-    ]  # The zarr array has axis order of t,c,z,y,x
-    return np.array(z[f"{level}"][tczyx_slice]).transpose()
-
-
-def get_tile_xyz_size(zgpath: str, level: int):  # pragma: no cover
-    """Return the x,y,z size of the level downsampled version of the image.
-
-    Parameters
-    ----------
-    zgpath: str
-        The path to the zarr group containing the image data
-    level: int
-        The downsampling level of the image pyramid to read from (0,1,2,3,4)
-    """
-    # Read in the zarr and get the size
-    z = zarr.open_group(zgpath, mode="r")
-    return z[f"{level}"].shape[-3:][::-1]
+# def get_tile_xyz_size(zgpath: str, level: int):  # pragma: no cover
+#     """Return the x,y,z size of the level downsampled version of the image.
+#
+#     Parameters
+#     ----------
+#     zgpath: str
+#         The path to the zarr group containing the image data
+#     level: int
+#         The downsampling level of the image pyramid to read from (0,1,2,3,4)
+#     """
+#     # Read in the zarr and get the size
+#     z = zarr.open_group(zgpath, mode="r")
+#     return z[f"{level}"].shape[-3:][::-1]
 
 
 def read_tile_sizes(xml_ViewSetups: OrderedDict) -> dict[int, np.ndarray]:  # pragma: no cover
-    """Read all the tile sizes defined in the given xml section.
+    """Iterate over all <ViewSetup> entries of the section and read their x,y,z sizes.
 
     Parameters
     ----------
@@ -215,7 +216,7 @@ def get_tile_pair_overlap(
 def read_tiles_interestpoints(
     ip_label="beads", path: str = "../results/interestpoints.n5", setup_ids: Optional[Iterable[int]] = None
 ) -> dict[int, np.ndarray]:  # pragma: no cover
-    """
+    """Reads the interest point catalog from the n5 file.
 
     Keeps the xml file axes order, i.e. loc is (x,y,z).
 
@@ -223,6 +224,12 @@ def read_tiles_interestpoints(
     ----------
     ip_label: str
       Identifier for the interest points. Usually "beads".
+
+    path: str
+        Path to the n5 file containing the interest points.
+
+    setup_ids: Optional[Iterable[int]]
+        The setup ids to read the interest points for. If None, assumes and reads 15 setups.
 
     Returns
     -------
@@ -434,7 +441,7 @@ def get_tile_overlapping_IPs(
 
 
 def get_transformed_tile_cutout(
-    tileId: int, w_box_overlap: Bbox, level: int, tile_inv_transformations: dict, xmldict: OrderedDict
+    tileId: int, w_box_overlap: Bbox, level: int, tile_inv_transformations: dict, image_loader: ImageLoaderABC
 ):  # pragma: no cover
     """Get the transformed cutout of the tile for a given world coordinate box.
 
@@ -464,8 +471,10 @@ def get_transformed_tile_cutout(
     # Upscale from level to level 0 and downscale from level 0 to level
     upscale_t = AffineTransformation.create_upscale_transformation(1 << level)
     downscale_t = upscale_t.get_inverse()
-    zp1 = get_tile_zarr_image_path(tileId, xmldict)
-    d_tsizes1 = get_tile_xyz_size(zp1, level)  # The image size of the downsampled tile
+
+    d_tsizes1 = image_loader.get_tile_xyz_size(
+        tileId=tileId, level=level
+    )  # The image size of the downsampled tile
 
     t_box_overlap1 = Bbox.create_box(w2t_1.apply_to(w_box_overlap.getallcorners()))
     # These are coordinates in the downscaled tiles - may be out of bounds but that's ok
@@ -492,7 +501,9 @@ def get_transformed_tile_cutout(
     T.left_compose(AffineTransformation(translation=ds_t_box_overlap1.get_to_origin_translation()))
 
     LOGGER.info("Destination cutout in original image: {} ".format(T.apply_to([[0, 0, 0], d_target_shape])))
-    arr_tile1_cutout = get_tile_slice(zp1, level, ds_t_box_overlap1.getslices())
+    arr_tile1_cutout = image_loader.get_tile_slice(
+        tileId=tileId, level=level, xyz_slices=ds_t_box_overlap1.getslices()
+    )
     LOGGER.info(f"Transforming image of size {ds_t_box_overlap1.getsizes()} ")
     target_tile1 = scipy.ndimage.affine_transform(
         arr_tile1_cutout, T.hctransform, output_shape=d_target_shape, order=1
@@ -508,7 +519,7 @@ def get_transformed_pair_cutouts(
     tile_transformations: dict,
     tile_inv_transformations: dict,
     tile_sizes: dict,
-    xmldict: OrderedDict,
+    image_loader: ImageLoaderABC,
 ):  # pragma: no cover
     """Get the cutouts of the two tiles in their overlapping region.
 
@@ -524,9 +535,9 @@ def get_transformed_pair_cutouts(
         return None, None, None
     # get transformed cutouts
     t1_cutout, t1_box = get_transformed_tile_cutout(
-        t1, w_box_overlap, level, tile_inv_transformations, xmldict
+        t1, w_box_overlap, level, tile_inv_transformations, image_loader=image_loader
     )
     t2_cutout, t2_box = get_transformed_tile_cutout(
-        t2, w_box_overlap, level, tile_inv_transformations, xmldict
+        t2, w_box_overlap, level, tile_inv_transformations, image_loader=image_loader
     )
     return t1_cutout, t2_cutout, w_box_overlap

@@ -1,6 +1,7 @@
 """Classes to read in SpimData XML files and extract information from them including the split-tile case."""
 import copy
 import logging
+from abc import ABC, abstractmethod
 from collections import OrderedDict
 from typing import Dict, Tuple, List
 
@@ -10,7 +11,17 @@ import zarr
 LOGGER = logging.getLogger("spimdata")
 
 
-class ZarrImageLoader:
+class ImageLoaderABC(ABC):
+    @abstractmethod
+    def get_tile_xyz_size(self, tileId: int, level: int):
+        pass
+
+    @abstractmethod
+    def get_tile_slice(self, tileId: int, level: int, xyz_slices: tuple[slice, slice, slice]) -> np.ndarray:
+        pass
+
+
+class ZarrImageLoader(ImageLoaderABC):
     """The base class to read-in ImageLoader section of the SpimData XML file."""
 
     def __init__(self, xmlImageLoader: OrderedDict, basePath: str = None):
@@ -67,7 +78,7 @@ class ZarrImageLoader:
         """
         return self.tile_zarr_paths[tileId]
 
-    def get_tile_zarr_xyz_size(self, tileId: int, level: int):  # pragma: no cover
+    def get_tile_xyz_size(self, tileId: int, level: int):  # pragma: no cover
         """Return the x,y,z size of the level downsampled version of the image.
 
         The value is read from the zarr storage.
@@ -78,11 +89,16 @@ class ZarrImageLoader:
             The path to the zarr group containing the image data
         level: int
             The downsampling level of the image pyramid to read from (0,1,2,3,4)
+
+        Returns
+        -------
+        sizes: np.ndarray
+            The x,y,z size of the image at the given level.
         """
         # Read in the zarr and get the size
         zgpath = self.get_tile_zarr_image_path(tileId)
         z = zarr.open_group(zgpath, mode="r")
-        return z[f"{level}"].shape[-3:][::-1]
+        return np.array(z[f"{level}"].shape[-3:][::-1], dtype=int)
 
     def get_tile_slice(
         self, tileId: int, level: int, xyz_slices: tuple[slice, slice, slice]
@@ -115,7 +131,7 @@ class ZarrImageLoader:
         return np.array(z[f"{level}"][tczyx_slice]).transpose()
 
 
-class SplitImageLoader:
+class SplitImageLoader(ImageLoaderABC):
     """The base class to read-in SplitImageLoader section of the SpimData XML file."""
 
     def __init__(self, xmlSplitImageLoader: OrderedDict, basePath: str = None):
@@ -157,8 +173,8 @@ class SplitImageLoader:
             tile_reverse_mapping[oldId].append(newId)
             if newId in tile_split_mapping:
                 raise ValueError(f"Tile id {newId} is already in the mapping.")
-            mincoords = np.array([int(x) for x in id_def["min"].strip().split()], dtype=int)
-            maxcoords = np.array([int(x) for x in id_def["max"].strip().split()], dtype=int)
+            mincoords = np.array([int(y) for y in id_def["min"].strip().split()], dtype=int)
+            maxcoords = np.array([int(y) for y in id_def["max"].strip().split()], dtype=int)
             tile_id_mapping[newId] = oldId
             tile_split_mapping[newId] = (mincoords, maxcoords)
         for x in tile_reverse_mapping:
@@ -200,6 +216,28 @@ class SplitImageLoader:
         self.subtileGridMap = grid_map
         return grid_map
 
+    def get_tile_xyz_size(self, tileId: int, level: int):  # pragma: no cover
+        """Return the x,y,z size of the level downsampled version of the image.
+
+        The value is read from the zarr storage.
+
+        Parameters
+        ----------
+        zgpath: str
+            The path to the zarr group containing the image data
+        level: int
+            The downsampling level of the image pyramid to read from (0,1,2,3,4)
+        """
+        # Read in the zarr and get the size
+        xyz_size_oldtile = self.innerLoader.get_tile_xyz_size(self.tileIdMapping[tileId], level)
+        factor = 1 << level
+        min_offsets, max_offsets = self.tileSplitMapping[tileId]
+        dscale_max_offsets = max_offsets // factor
+        dscale_min_offsets = min_offsets // factor
+        max_offsets = np.minimum(np.array(xyz_size_oldtile), dscale_max_offsets)
+        sizes = max_offsets - dscale_min_offsets
+        return sizes
+
     def get_outer_boundary_subtiles(
         self, old_t1: int, old_t2: int, proj_axis: int
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -229,6 +267,9 @@ class SplitImageLoader:
             # y direction overlap
             t1 = self.subtileGridMap[old_t1][:, -1, :]
             t2 = self.subtileGridMap[old_t2][:, 0, :]
+        LOGGER.info(
+            f"Outer boundary subtiles for {old_t1} and {old_t2} in {proj_axis} axis " f"are {t1} and {t2}."
+        )
         return t1, t2
 
     def get_tile_slice(

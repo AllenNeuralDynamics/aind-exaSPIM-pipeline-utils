@@ -20,7 +20,7 @@ from .tile_transformations import (
     read_tiles_interestpoints,
     read_ip_correspondences,
 )
-from .spimdata import SplitImageLoader
+from .spimdata import SplitImageLoader, ZarrImageLoader
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.ticker as ticker
 
@@ -130,8 +130,8 @@ def create_pair_overplot(
 def plot_one_combined_projection(
     tile1: int,
     tile2: int,
-    ips1: np.ndarray,
-    ips2: np.ndarray,
+    ips1: Optional[np.ndarray],
+    ips2: Optional[np.ndarray],
     t1_cutout: np.ndarray,
     t2_cutout: np.ndarray,
     w_box_overlap: Bbox,
@@ -170,13 +170,19 @@ def plot_one_combined_projection(
         // 200,
     )
 
-    coords1 = ips1["loc_w"][:, PROJ_KEEP[proj_axis]]
-    H, xedges, yedges = np.histogram2d(coords1[:, 0], coords1[:, 1], bins=nbins)
-    vmax1 = np.max(H)
+    if ips1:
+        coords1 = ips1["loc_w"][:, PROJ_KEEP[proj_axis]]
+        H, xedges, yedges = np.histogram2d(coords1[:, 0], coords1[:, 1], bins=nbins)
+        vmax1 = np.max(H)
+    else:
+        vmax1 = 1
 
-    coords2 = ips2["loc_w"][:, PROJ_KEEP[proj_axis]]
-    H, xedges, yedges = np.histogram2d(coords2[:, 0], coords2[:, 1], bins=nbins)
-    vmax2 = np.max(H)
+    if ips2:
+        coords2 = ips2["loc_w"][:, PROJ_KEEP[proj_axis]]
+        H, xedges, yedges = np.histogram2d(coords2[:, 0], coords2[:, 1], bins=nbins)
+        vmax2 = np.max(H)
+    else:
+        vmax2 = 1
 
     vmax = max(vmax1, vmax2)
 
@@ -217,23 +223,24 @@ def plot_one_combined_projection(
         ],
     )
 
-    H = ax.hist2d(
-        coords1[:, 0],
-        coords1[:, 1],
-        range=[
-            [w_box_overlap.bleft[PROJ_KEEP[proj_axis]][0], w_box_overlap.tright[PROJ_KEEP[proj_axis]][0]],
-            [w_box_overlap.bleft[PROJ_KEEP[proj_axis]][1], w_box_overlap.tright[PROJ_KEEP[proj_axis]][1]],
-        ],
-        vmin=0,
-        vmax=vmax,
-        bins=nbins,
-        cmap="Blues",
-        alpha=0.9,
-    )
+    if ips1:
+        H = ax.hist2d(
+            coords1[:, 0],
+            coords1[:, 1],
+            range=[
+                [w_box_overlap.bleft[PROJ_KEEP[proj_axis]][0], w_box_overlap.tright[PROJ_KEEP[proj_axis]][0]],
+                [w_box_overlap.bleft[PROJ_KEEP[proj_axis]][1], w_box_overlap.tright[PROJ_KEEP[proj_axis]][1]],
+            ],
+            vmin=0,
+            vmax=vmax,
+            bins=nbins,
+            cmap="Blues",
+            alpha=0.9,
+        )
     ax.get_xaxis().set_major_formatter(ticker.FuncFormatter(format_large_numbers))
     ax.get_yaxis().set_major_formatter(ticker.FuncFormatter(format_large_numbers))
     ax.invert_yaxis()
-    if not subtile_plot:
+    if ips1 and not subtile_plot:
         ax.set_aspect("equal")
         ax.set_title(f"T{tile1} in {AXIS_PROJ[proj_axis]}")
         fig.colorbar(H[3], ax=ax)
@@ -297,23 +304,24 @@ def plot_one_combined_projection(
             w_box_overlap.bleft[PROJ_KEEP[proj_axis]][1] - 0.5,
         ],
     )
-    H = ax.hist2d(
-        coords2[:, 0],
-        coords2[:, 1],
-        range=[
-            [w_box_overlap.bleft[PROJ_KEEP[proj_axis]][0], w_box_overlap.tright[PROJ_KEEP[proj_axis]][0]],
-            [w_box_overlap.bleft[PROJ_KEEP[proj_axis]][1], w_box_overlap.tright[PROJ_KEEP[proj_axis]][1]],
-        ],
-        vmin=0,
-        vmax=vmax,
-        bins=nbins,
-        cmap="Blues",
-        alpha=0.9,
-    )
+    if ips2:
+        H = ax.hist2d(
+            coords2[:, 0],
+            coords2[:, 1],
+            range=[
+                [w_box_overlap.bleft[PROJ_KEEP[proj_axis]][0], w_box_overlap.tright[PROJ_KEEP[proj_axis]][0]],
+                [w_box_overlap.bleft[PROJ_KEEP[proj_axis]][1], w_box_overlap.tright[PROJ_KEEP[proj_axis]][1]],
+            ],
+            vmin=0,
+            vmax=vmax,
+            bins=nbins,
+            cmap="Blues",
+            alpha=0.9,
+        )
     ax.get_xaxis().set_major_formatter(ticker.FuncFormatter(format_large_numbers))
     ax.get_yaxis().set_major_formatter(ticker.FuncFormatter(format_large_numbers))
     ax.invert_yaxis()
-    if not subtile_plot:
+    if ips2 and not subtile_plot:
         ax.set_aspect("equal")
         ax.set_title(f"T{tile2} in {AXIS_PROJ[proj_axis]}")
         fig.colorbar(H[3], ax=ax)
@@ -426,15 +434,23 @@ def create_one_projection_split_tiles_figure(
 
         if (st1, st2) in st_overlaps:
             w_box_overlap = st_overlaps[(st1, st2)]
-            ips1 = get_tile_overlapping_IPs(
-                st1, st2, ip_arrays[st1], tile_transformations, tile_inv_transformations, tile_sizes
-            )
-            ips2 = get_tile_overlapping_IPs(
-                st2, st1, ip_arrays[st2], tile_transformations, tile_inv_transformations, tile_sizes
-            )
+            if st1 in ip_arrays:
+                ips1 = get_tile_overlapping_IPs(
+                    st1, st2, ip_arrays[st1], tile_transformations, tile_inv_transformations, tile_sizes
+                )
+            else:
+                ips1 = None
+            if st2 in ip_arrays:
+                ips2 = get_tile_overlapping_IPs(
+                    st2, st1, ip_arrays[st2], tile_transformations, tile_inv_transformations, tile_sizes
+                )
+            else:
+                ips2 = None
             if corresponding_only:
-                ips1 = filter_tile_corresponding_IPs(st1, st2, ips1, ip_correspondences, id_maps)
-                ips2 = filter_tile_corresponding_IPs(st2, st1, ips2, ip_correspondences, id_maps)
+                if ips1:
+                    ips1 = filter_tile_corresponding_IPs(st1, st2, ips1, ip_correspondences, id_maps)
+                if ips2:
+                    ips2 = filter_tile_corresponding_IPs(st2, st1, ips2, ip_correspondences, id_maps)
                 title_mode = "corresp."
 
             plot_one_combined_projection(
@@ -468,6 +484,7 @@ def run_pair_overplots(input_xml: str, prefix: Optional[str] = None):  # pragma:
     tile_transformations, tile_inv_transformations = read_tile_transformations(
         xmldict["SpimData"]["ViewRegistrations"]
     )
+    image_loader = ZarrImageLoader(xmldict["SpimData"]["SequenceDescription"]["ImageLoader"])
     vertical_pairs = [
         (0, 3),
         (1, 4),
@@ -488,7 +505,13 @@ def run_pair_overplots(input_xml: str, prefix: Optional[str] = None):  # pragma:
     with PdfPages(f"{prefix}cutouts_vertical_overlaps.pdf") as pdf_writer:
         for t1, t2 in vertical_pairs:
             t1_cutout, t2_cutout, w_box_overlap = get_transformed_pair_cutouts(
-                t1, t2, 4, tile_transformations, tile_inv_transformations, tile_full_sizes, xmldict
+                t1,
+                t2,
+                4,
+                tile_transformations,
+                tile_inv_transformations,
+                tile_full_sizes,
+                image_loader=image_loader,
             )
             create_pair_overplot(
                 t1, t2, t1_cutout, t2_cutout, w_box_overlap, common_scale=True, pdf_writer=pdf_writer
@@ -496,7 +519,13 @@ def run_pair_overplots(input_xml: str, prefix: Optional[str] = None):  # pragma:
     with PdfPages(f"{prefix}cutouts_horizontal_overlaps.pdf") as pdf_writer:
         for t1, t2 in horizontal_pairs:
             t1_cutout, t2_cutout, w_box_overlap = get_transformed_pair_cutouts(
-                t1, t2, 4, tile_transformations, tile_inv_transformations, tile_full_sizes, xmldict
+                t1,
+                t2,
+                4,
+                tile_transformations,
+                tile_inv_transformations,
+                tile_full_sizes,
+                image_loader=image_loader,
             )
             create_pair_overplot(
                 t1, t2, t1_cutout, t2_cutout, w_box_overlap, common_scale=True, pdf_writer=pdf_writer
@@ -526,6 +555,7 @@ def run_combined_plots(
     # get the interest points
     ip_arrays = read_tiles_interestpoints()
     ip_correspondences, id_maps = read_ip_correspondences()
+    image_loader = ZarrImageLoader(xmldict["SpimData"]["SequenceDescription"]["ImageLoader"])
     # get all transformations
     tile_full_sizes = read_tile_sizes(xmldict["SpimData"]["SequenceDescription"]["ViewSetups"])
     tile_transformations, tile_inv_transformations = read_tile_transformations(
@@ -555,7 +585,13 @@ def run_combined_plots(
     with PdfPages(f"{prefix}cutouts_vertical_overlaps{pdf_proj}.pdf") as pdf_writer:
         for t1, t2 in vertical_pairs:
             t1_cutout, t2_cutout, w_box_overlap = get_transformed_pair_cutouts(
-                t1, t2, 4, tile_transformations, tile_inv_transformations, tile_full_sizes, xmldict
+                t1,
+                t2,
+                4,
+                tile_transformations,
+                tile_inv_transformations,
+                tile_full_sizes,
+                image_loader=image_loader,
             )
             if w_box_overlap is None:
                 LOGGER.warning(f"Tile {t1} and {t2} has world overlap box. Skipping.")
@@ -601,7 +637,13 @@ def run_combined_plots(
     with PdfPages(f"{prefix}cutouts_horizontal_overlaps{pdf_proj}.pdf") as pdf_writer:
         for t1, t2 in horizontal_pairs:
             t1_cutout, t2_cutout, w_box_overlap = get_transformed_pair_cutouts(
-                t1, t2, 4, tile_transformations, tile_inv_transformations, tile_full_sizes, xmldict
+                t1,
+                t2,
+                4,
+                tile_transformations,
+                tile_inv_transformations,
+                tile_full_sizes,
+                image_loader=image_loader,
             )
             if w_box_overlap is None:
                 LOGGER.warning(f"Tile {t1} and {t2} has world overlap box. Skipping.")
@@ -645,10 +687,10 @@ def run_combined_plots(
 
 def run_split_combined_plots(
     input_xml: str,
+    split_xyz: Tuple[int, int, int],
     prefix: Optional[str] = None,
     vert_proj_axis: Optional[int] = None,
     hor_proj_axis: Optional[int] = None,
-    split_xyz: Tuple[int, int, int] = (1, 1, 1),
 ):  # pragma: no cover
     """Create IP density and image cutout plots for all the vertical and horizontal tile pairs.
 
@@ -669,8 +711,11 @@ def run_split_combined_plots(
     grid_map = split_img_loader.init_grid_map(split_xyz)
     # get the interest points
     nTiles = split_xyz[0] * split_xyz[1] * split_xyz[2] * 15
-    ip_arrays = read_tiles_interestpoints(setup_ids=range(nTiles))
-    ip_correspondences, id_maps = read_ip_correspondences(setup_ids=range(nTiles))
+    ip_arrays = {}
+    ip_correspondences = {}
+    id_maps = {}
+    # ip_arrays = read_tiles_interestpoints(setup_ids=range(nTiles))
+    # ip_correspondences, id_maps = read_ip_correspondences(setup_ids=range(nTiles))
     # get all transformations
     tile_full_sizes = read_tile_sizes(xmldict["SpimData"]["SequenceDescription"]["ViewSetups"])
     tile_transformations, tile_inv_transformations = read_tile_transformations(
@@ -704,7 +749,13 @@ def run_split_combined_plots(
             subtiles1, subtiles2 = split_img_loader.get_outer_boundary_subtiles(t1, t2, proj_axis=0)
             for st1, st2 in np.nditer([subtiles1, subtiles2], order="F"):
                 st1_cutout, st2_cutout, w_box_overlap = get_transformed_pair_cutouts(
-                    st1, st2, 4, tile_transformations, tile_inv_transformations, tile_full_sizes, xmldict
+                    st1,
+                    st2,
+                    4,
+                    tile_transformations,
+                    tile_inv_transformations,
+                    tile_full_sizes,
+                    image_loader=split_img_loader,
                 )
                 if w_box_overlap is None:
                     LOGGER.warning(f"Tile {t1}-{st1} and {t2}-{st2} has no world overlap boxes. Skipping.")
@@ -833,4 +884,23 @@ def run_aff_yz_xz_combined_plot():  # pragma: no cover
     rlogger.addHandler(handler)
     run_combined_plots(
         "../results/bigstitcher.xml", prefix="../results/aff_", vert_proj_axis=0, hor_proj_axis=1
+    )
+
+
+def run_aff_split_yz_xz_combined_plot():  # pragma: no cover
+    """Entry point for run_aff_yz_xz_combined_plot."""
+    rlogger = logging.getLogger()
+    rlogger.setLevel(logging.INFO)
+
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
+    handler.setFormatter(formatter)
+    rlogger.addHandler(handler)
+    run_split_combined_plots(
+        "../results/bigstitcher.xml",
+        split_xyz=(2, 2, 6),
+        prefix="../results/aff_",
+        vert_proj_axis=0,
+        hor_proj_axis=1,
     )
