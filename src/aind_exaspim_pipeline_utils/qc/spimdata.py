@@ -170,11 +170,17 @@ class SplitImageLoader:
         if self.xmlSplitImageLoader["@format"] != "split.viewerimgloader":
             raise ValueError("This class is for split image loading only.")
 
-    def create_grid_map(self, xyz_grid_size: Tuple[int, int, int]) -> Dict[int, np.ndarray]:
+    def init_grid_map(self, xyz_grid_size: Tuple[int, int, int]) -> Dict[int, np.ndarray]:
         """Organize the old->new tile ids mapping onto an xyz grid per each old tile id.
 
         Assume that the newIds are increasing monotonically per OldId, if not, raises ValueError.
         Assume that the newIds are fastest changing by x, then y, then z.
+
+        Parameters
+        ----------
+        xyz_grid_size: Tuple[int, int, int]
+            The size of the sub-tiling grid in x,y,z directions. Each tile must be
+            split in the same way.
 
         Returns
         -------
@@ -191,7 +197,39 @@ class SplitImageLoader:
                 raise ValueError(f"NewIds for oldId {oldId} are not sequential.")
             # x is the fastest changing index
             grid_map[oldId] = np.array(newIds).reshape(xyz_grid_size, order="F")
+        self.subtileGridMap = grid_map
         return grid_map
+
+    def get_outer_boundary_subtiles(
+        self, old_t1: int, old_t2: int, proj_axis: int
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Gets a 2D array of the new tile Ids on the outer boundary of the old tile.
+        The old tiles must have an overlap along proj_axis.
+
+        Parameters
+        ----------
+        old_t1, old_t2: int
+            The old tile id of the first and the second tile where old_t1 < old_t2.
+        proj_axis: int
+            The axis along which the overlap is present, must be 0 == x or 1 == y.
+
+        Returns
+        -------
+        t1, t2: np.ndarray
+            The 2D arrays of the new tile ids on the outer boundary of the old tiles. Should overlap element-wise.
+            The 2D arrays have spatial axis order of x,y.
+        """
+        if old_t1 >= old_t2:
+            raise ValueError("old_t1 must be less than old_t2.")
+        if proj_axis == 0:
+            # x direction overlap
+            t1 = self.subtileGridMap[old_t1][0, :, :]
+            t2 = self.subtileGridMap[old_t2][-1, :, :]
+        elif proj_axis == 1:
+            # y direction overlap
+            t1 = self.subtileGridMap[old_t1][:, -1, :]
+            t2 = self.subtileGridMap[old_t2][:, 0, :]
+        return t1, t2
 
     def get_tile_slice(
         self, tileId: int, level: int, xyz_slices: tuple[slice, slice, slice]

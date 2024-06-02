@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import logging
 import json
+from typing import Optional, Iterable
+
 import numpy as np
 import numpy.lib.recfunctions
 import scipy
@@ -211,7 +213,7 @@ def get_tile_pair_overlap(
 
 
 def read_tiles_interestpoints(
-    ip_label="beads", path: str = "../results/interestpoints.n5"
+    ip_label="beads", path: str = "../results/interestpoints.n5", setup_ids: Optional[Iterable[int]] = None
 ) -> dict[int, np.ndarray]:  # pragma: no cover
     """
 
@@ -231,7 +233,9 @@ def read_tiles_interestpoints(
     n5s = zarr.n5.N5FSStore(path)
     zg = zarr.open(store=n5s, mode="r")
     ip_arrays = {}
-    for x in range(15):
+    if setup_ids is None:
+        setup_ids = range(15)
+    for x in setup_ids:
         id = zg[f"tpId_0_viewSetupId_{x}/{ip_label}/interestpoints/id"]  # technically 2D
         loc = zg[f"tpId_0_viewSetupId_{x}/{ip_label}/interestpoints/loc"]
         intensities = zg[f"tpId_0_viewSetupId_{x}/{ip_label}/interestpoints/intensities"]
@@ -247,7 +251,9 @@ def read_tiles_interestpoints(
 
 
 def read_ip_correspondences(
-    ip_label: str = "beads", path: str = "../results/interestpoints.n5"
+    ip_label: str = "beads",
+    path: str = "../results/interestpoints.n5",
+    setup_ids: Optional[Iterable[int]] = None,
 ) -> tuple[dict[int, np.ndarray], dict[int, dict[str, int]]]:  # pragma: no cover
     """Read in the interest point correspondences from the n5 binary files.
 
@@ -263,7 +269,9 @@ def read_ip_correspondences(
     zg = zarr.open(store=n5s, mode="r")
     ip_correspondences = {}
     id_maps = {}
-    for x in range(15):
+    if setup_ids is None:
+        setup_ids = range(15)
+    for x in setup_ids:
         attr = read_json(f"{path}/tpId_0_viewSetupId_{x}/{ip_label}/correspondences/attributes.json")
         id_maps[x] = attr["idMap"]
         try:
