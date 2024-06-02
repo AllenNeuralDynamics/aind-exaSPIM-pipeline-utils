@@ -412,7 +412,7 @@ def create_one_projection_split_tiles_figure(
     if proj_axis is None:
         raise NotImplementedError("Split tiles combined plots not implemented for all projections")
     subtiles1, subtiles2 = split_img_loader.get_outer_boundary_subtiles(
-        outer_tile1, outer_tile2, proj_axis=proj_axis
+        outer_tile1, outer_tile2, proj_axis=proj_axis,
     )
     fig = plt.figure(figsize=(8, 4))
     outer_grid = fig.add_gridspec(1, 3, wspace=0.2, hspace=0, left=0.05, right=0.95)
@@ -748,6 +748,8 @@ def run_split_combined_plots(
         for t1, t2 in vertical_pairs:
             subtiles1, subtiles2 = split_img_loader.get_outer_boundary_subtiles(t1, t2, proj_axis=0)
             for st1, st2 in np.nditer([subtiles1, subtiles2], order="F"):
+                st1 = int(st1)
+                st2 = int(st2)
                 st1_cutout, st2_cutout, w_box_overlap = get_transformed_pair_cutouts(
                     st1,
                     st2,
@@ -779,6 +781,7 @@ def run_split_combined_plots(
                 pdf_writer=pdf_writer,
                 common_scale=True,
                 proj_axis=vert_proj_axis,
+                split_img_loader=split_img_loader
             )
             # create_one_projection_combined_figure(
             #     t1,

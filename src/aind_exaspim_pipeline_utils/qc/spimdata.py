@@ -160,7 +160,7 @@ class SplitImageLoader(ImageLoaderABC):
         tile_split_mapping = OrderedDict()
         tile_id_mapping = OrderedDict()
         tile_reverse_mapping = dict()
-        setup_id_defs = self.xmlSplitImageLoader["setupIds"]["setupId"]
+        setup_id_defs = self.xmlSplitImageLoader["SetupIds"]["SetupIdDefinition"]
         if not isinstance(setup_id_defs, list):
             setup_id_defs = [
                 setup_id_defs,
