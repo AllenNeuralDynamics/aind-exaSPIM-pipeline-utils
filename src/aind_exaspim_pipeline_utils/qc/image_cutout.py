@@ -840,7 +840,7 @@ def run_split_combined_plots(
         pdf_proj = ""
     else:
         pdf_proj = "_" + AXIS_PROJ[hor_proj_axis]
-    with PdfPages(f"{prefix}cutouts_horizontal_overlaps{pdf_proj}.pdf") as pdf_writer:
+    with PdfPages(f"{prefix}cutouts_split_horizontal_overlaps{pdf_proj}.pdf") as pdf_writer:
         st_cutouts = OrderedDict()
         st_overlaps = OrderedDict()
         for t1, t2 in horizontal_pairs:
