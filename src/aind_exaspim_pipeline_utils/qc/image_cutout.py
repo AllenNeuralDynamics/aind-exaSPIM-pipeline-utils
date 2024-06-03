@@ -455,47 +455,47 @@ def create_one_projection_split_tiles_figure(
             # The same sub panel on all three plotting panels
             axs = [all_axs[0][i_py, i_px], all_axs[1][i_py, i_px], all_axs[2][i_py, i_px]]
 
-        if (st1, st2) in st_overlaps:
-            w_box_overlap = st_overlaps[(st1, st2)]
-            if st1 in ip_arrays:
-                ips1 = get_tile_overlapping_IPs(
-                    st1, st2, ip_arrays[st1], tile_transformations, tile_inv_transformations, tile_sizes
-                )
-            else:
-                ips1 = None
-            if st2 in ip_arrays:
-                ips2 = get_tile_overlapping_IPs(
-                    st2, st1, ip_arrays[st2], tile_transformations, tile_inv_transformations, tile_sizes
-                )
-            else:
-                ips2 = None
-            if corresponding_only:
-                if ips1:
-                    ips1 = filter_tile_corresponding_IPs(st1, st2, ips1, ip_correspondences, id_maps)
-                if ips2:
-                    ips2 = filter_tile_corresponding_IPs(st2, st1, ips2, ip_correspondences, id_maps)
-                title_mode = "corresp."
+            if (st1, st2) in st_overlaps:
+                w_box_overlap = st_overlaps[(st1, st2)]
+                if st1 in ip_arrays:
+                    ips1 = get_tile_overlapping_IPs(
+                        st1, st2, ip_arrays[st1], tile_transformations, tile_inv_transformations, tile_sizes
+                    )
+                else:
+                    ips1 = None
+                if st2 in ip_arrays:
+                    ips2 = get_tile_overlapping_IPs(
+                        st2, st1, ip_arrays[st2], tile_transformations, tile_inv_transformations, tile_sizes
+                    )
+                else:
+                    ips2 = None
+                if corresponding_only:
+                    if ips1:
+                        ips1 = filter_tile_corresponding_IPs(st1, st2, ips1, ip_correspondences, id_maps)
+                    if ips2:
+                        ips2 = filter_tile_corresponding_IPs(st2, st1, ips2, ip_correspondences, id_maps)
+                    title_mode = "corresp."
 
-            cbar_mappable = plot_one_combined_projection(
-                outer_tile1,
-                outer_tile2,
-                ips1,
-                ips2,
-                st_cutouts[st1],
-                st_cutouts[st2],
-                w_box_overlap,
-                proj_axis,
-                axs,
-                fig,
-                common_scale,
-                subtile_plot=True,
-            )
+                cbar_mappable = plot_one_combined_projection(
+                    outer_tile1,
+                    outer_tile2,
+                    ips1,
+                    ips2,
+                    st_cutouts[st1],
+                    st_cutouts[st2],
+                    w_box_overlap,
+                    proj_axis,
+                    axs,
+                    fig,
+                    common_scale,
+                    subtile_plot=True,
+                )
 
-            if first_panel:
-                for i in range(3):
-                    if cbar_mappable[i]:
-                        fig.colorbar(cbar_mappable[i], ax=all_axs[i])
-                first_panel = False
+                if first_panel:
+                    for i in range(3):
+                        if cbar_mappable[i]:
+                            fig.colorbar(cbar_mappable[i], ax=all_axs[i])
+                    first_panel = False
 
     fig.text(0.02, 0.98, str(subtiles1.T), fontsize=14, ha="left", va="top")
     fig.text(0.90, 0.98, str(subtiles2.T), fontsize=14, ha="left", va="top")
