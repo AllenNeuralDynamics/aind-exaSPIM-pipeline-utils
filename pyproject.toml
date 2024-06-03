@@ -70,6 +70,7 @@ run_aff_density_plot = "aind_exaspim_pipeline_utils.qc.ip_density:run_aff_densit
 run_aff_combined_plot = "aind_exaspim_pipeline_utils.qc.image_cutout:run_aff_combined_plot"
 run_aff_yz_xz_combined_plot = "aind_exaspim_pipeline_utils.qc.image_cutout:run_aff_yz_xz_combined_plot"
 run_aff_split_yz_xz_combined_plot = "aind_exaspim_pipeline_utils.qc.image_cutout:run_aff_split_yz_xz_combined_plot"
+run_upload_results = "aind_exaspim_pipeline_utils.java_utils:run_upload_results"
 
 [tool.setuptools.dynamic]
 version = {attr = "aind_exaspim_pipeline_utils.__version__"}

@@ -207,6 +207,7 @@ def plot_one_combined_projection(
         img_vmax1 = img_vmax
         img_vmax2 = img_vmax
 
+    cbar_mappable = []
     ax_iter = iter(axs)
     ax = next(ax_iter)
     ax.imshow(
@@ -237,9 +238,14 @@ def plot_one_combined_projection(
             cmap="Blues",
             alpha=0.9,
         )
+        ax.invert_yaxis()
+        cbar_mappable.append(H[3])
+    else:
+        cbar_mappable.append(None)
+
     ax.get_xaxis().set_major_formatter(ticker.FuncFormatter(format_large_numbers))
     ax.get_yaxis().set_major_formatter(ticker.FuncFormatter(format_large_numbers))
-    ax.invert_yaxis()
+
     if ips1 and not subtile_plot:
         ax.set_aspect("equal")
         ax.set_title(f"T{tile1} in {AXIS_PROJ[proj_axis]}")
@@ -271,19 +277,29 @@ def plot_one_combined_projection(
     )
     ax.get_xaxis().set_major_formatter(ticker.FuncFormatter(format_large_numbers))
     ax.get_yaxis().set_major_formatter(ticker.FuncFormatter(format_large_numbers))
-    if common_scale and not subtile_plot:
+    if common_scale:
         # Create a gradient from black (0, 0, 0) to red (255, 0, 0)
         gradient = np.linspace(0, 1, 256)
         colors = np.vstack((gradient, np.zeros(256), np.zeros(256))).T
 
         # Create a custom colormap
         custom_cmap = plt.cm.colors.ListedColormap(colors)
-        fig.colorbar(
-            matplotlib.cm.ScalarMappable(
-                norm=matplotlib.colors.Normalize(img_vmin, img_vmax), cmap=custom_cmap
-            ),
-            ax=ax,
-        )
+        if subtile_plot:
+            cbar_mappable.append(
+                matplotlib.cm.ScalarMappable(
+                    norm=matplotlib.colors.Normalize(img_vmin, img_vmax), cmap=custom_cmap
+                )
+            )
+        else:
+            fig.colorbar(
+                matplotlib.cm.ScalarMappable(
+                    norm=matplotlib.colors.Normalize(img_vmin, img_vmax), cmap=custom_cmap
+                ),
+                ax=ax,
+            )
+            cbar_mappable.append(None)
+    else:
+        cbar_mappable.append(None)
     if not subtile_plot:
         ax.set_aspect("equal")
         ax.set_title(f"T{tile1} + T{tile2} in {AXIS_PROJ[proj_axis]}")
@@ -318,13 +334,17 @@ def plot_one_combined_projection(
             cmap="Blues",
             alpha=0.9,
         )
+        ax.invert_yaxis()
+        cbar_mappable.append(H[3])
+    else:
+        cbar_mappable.append(None)
     ax.get_xaxis().set_major_formatter(ticker.FuncFormatter(format_large_numbers))
     ax.get_yaxis().set_major_formatter(ticker.FuncFormatter(format_large_numbers))
-    ax.invert_yaxis()
     if ips2 and not subtile_plot:
         ax.set_aspect("equal")
         ax.set_title(f"T{tile2} in {AXIS_PROJ[proj_axis]}")
         fig.colorbar(H[3], ax=ax)
+    return cbar_mappable
 
 
 def create_one_projection_combined_figure(
@@ -412,9 +432,11 @@ def create_one_projection_split_tiles_figure(
     if proj_axis is None:
         raise NotImplementedError("Split tiles combined plots not implemented for all projections")
     subtiles1, subtiles2 = split_img_loader.get_outer_boundary_subtiles(
-        outer_tile1, outer_tile2, proj_axis=proj_axis,
+        outer_tile1,
+        outer_tile2,
+        proj_axis=proj_axis,
     )
-    fig = plt.figure(figsize=(8, 4))
+    fig = plt.figure(figsize=(11, 6))
     outer_grid = fig.add_gridspec(1, 3, wspace=0.2, hspace=0, left=0.05, right=0.95)
     inner_grids = []
     all_axs = []
@@ -422,8 +444,9 @@ def create_one_projection_split_tiles_figure(
         inner_grids.append(
             outer_grid[0, i].subgridspec(subtiles1.shape[1], subtiles1.shape[0], wspace=0.1, hspace=0.1)
         )
-        all_axs.append(inner_grids[i].subplots())
+        all_axs.append(inner_grids[i].subplots(sharex="cols", sharey="rows"))
     # i_py panel grid index for y, i_px panel grid index for x
+    first_panel = True
     for i_py in range(subtiles1.shape[1]):
         for i_px in range(subtiles1.shape[0]):
             # Sub-tile ids
@@ -453,7 +476,7 @@ def create_one_projection_split_tiles_figure(
                     ips2 = filter_tile_corresponding_IPs(st2, st1, ips2, ip_correspondences, id_maps)
                 title_mode = "corresp."
 
-            plot_one_combined_projection(
+            cbar_mappable = plot_one_combined_projection(
                 outer_tile1,
                 outer_tile2,
                 ips1,
@@ -468,6 +491,14 @@ def create_one_projection_split_tiles_figure(
                 subtile_plot=True,
             )
 
+            if first_panel:
+                for i in range(3):
+                    if cbar_mappable[i]:
+                        fig.colorbar(cbar_mappable[i], ax=all_axs[i])
+                first_panel = False
+
+    fig.text(0.02, 0.98, str(subtiles1.T), fontsize=14, ha="left", va="top")
+    fig.text(0.90, 0.98, str(subtiles2.T), fontsize=14, ha="left", va="top")
     fig.suptitle(f"Tile{outer_tile1}-{outer_tile2} overlap ({title_mode})")
     if pdf_writer:
         pdf_writer.savefig(fig)
@@ -781,7 +812,7 @@ def run_split_combined_plots(
                 pdf_writer=pdf_writer,
                 common_scale=True,
                 proj_axis=vert_proj_axis,
-                split_img_loader=split_img_loader
+                split_img_loader=split_img_loader,
             )
             # create_one_projection_combined_figure(
             #     t1,

@@ -114,7 +114,7 @@ def get_tile_zarr_image_path(tileId: int, xml_dict: OrderedDict) -> str:  # prag
 
 
 def read_tile_sizes(xml_ViewSetups: OrderedDict) -> dict[int, np.ndarray]:  # pragma: no cover
-    """Iterate over all <ViewSetup> entries of the section and read their x,y,z sizes.
+    """Read all the tile sizes defined in the given xml section.
 
     Parameters
     ----------

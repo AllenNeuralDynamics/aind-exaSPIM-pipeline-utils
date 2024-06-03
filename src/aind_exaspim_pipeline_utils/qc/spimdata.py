@@ -3,7 +3,7 @@ import copy
 import logging
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Optional
 
 import numpy as np
 import zarr
@@ -267,9 +267,53 @@ class SplitImageLoader(ImageLoaderABC):
             # y direction overlap
             t1 = self.subtileGridMap[old_t1][:, -1, :]
             t2 = self.subtileGridMap[old_t2][:, 0, :]
+        else:
+            raise ValueError("proj_axis must be 0 or 1 for outer boundary subtiles.")
         LOGGER.info(
             f"Outer boundary subtiles for {old_t1} and {old_t2} in {proj_axis} axis " f"are {t1} and {t2}."
         )
+        return t1, t2
+
+    def get_inner_boundary_subtiles(
+        self, old_t: int, proj_axis: int, inner_index: Optional[int] = None
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Gets a 2D array of the new tile Ids at an inner boundary within an old tile.
+
+        Parameters
+        ----------
+        old_t: int
+            The old tile id where from where we want the inner boundary subtiles.
+        proj_axis: int
+            The axis along which the overlap is present, 0 == x, 1 == y or 2 == z.
+        inner_index: int > 0 or None
+            The index of the inner boundary in the proj_axis direction. If None, it is the middle of the axis.
+            The overlap is between inner_index-1 and inner_index.
+
+        Returns
+        -------
+        t1, t2: np.ndarray
+            The 2D arrays of the new tile ids at the inner boundary of the old tiles. Should overlap element-wise.
+            The 2D arrays have spatial axis order of x,y.
+        """
+        if inner_index is None:
+            inner_index = self.subtileGridMap[old_t].shape[proj_axis] // 2
+            if inner_index == 0:
+                raise ValueError("Size in the requested axis must be at least 2")
+
+        if proj_axis == 0:
+            s1 = (inner_index - 1, slice(None), slice(None))
+            s2 = (inner_index, slice(None), slice(None))
+        elif proj_axis == 1:
+            s1 = (slice(None), inner_index - 1, slice(None))
+            s2 = (slice(None), inner_index, slice(None))
+        elif proj_axis == 2:
+            s1 = (slice(None), slice(None), inner_index - 1)
+            s2 = (slice(None), slice(None), inner_index)
+
+        t1 = self.subtileGridMap[old_t][s1]
+        t2 = self.subtileGridMap[old_t][s2]
+        LOGGER.info(f"Inner boundary subtiles for {old_t} in {proj_axis} axis " f"are {t1} and {t2}.")
+
         return t1, t2
 
     def get_tile_slice(

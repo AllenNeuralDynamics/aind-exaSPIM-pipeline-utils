@@ -80,3 +80,38 @@ def java_detreg_postprocess_main():  # pragma: no cover
 
     logger.info("Uploading capsule results to {}".format(args["output_uri"]))
     upload_alignment_results(args)
+
+def run_upload_results():  # pragma: no cover
+    """Entry point for uploading the contents of the results folder to aind-open-data alignment data product.
+
+    Uploads all the files in the results folder to the alignment data product overwriting any existing files.
+    """
+    logging.basicConfig(format="%(asctime)s %(levelname)-7s %(message)s")
+
+    logger = logging.getLogger()
+
+    pipeline_manifest = get_capsule_manifest()
+
+    args = {
+        "dataset_xml": "../data/manifest/dataset.xml",
+        "session_id": pipeline_manifest.pipeline_suffix,
+        "log_level": logging.DEBUG,
+        "name": pipeline_manifest.name,
+        "subject_id": pipeline_manifest.subject_id,
+    }
+    # "input_uri" and "output_uri" are formatted to have trailing slashes
+    if pipeline_manifest.ip_registrations:
+        args["output_uri"] = fmt_uri(pipeline_manifest.ip_registrations[-1].IJwrap.output_uri)
+        args["input_uri"] = fmt_uri(pipeline_manifest.ip_registrations[-1].IJwrap.input_uri)
+    else:
+        args["output_uri"] = fmt_uri(pipeline_manifest.ip_detection.IJwrap.output_uri)
+        args["input_uri"] = fmt_uri(pipeline_manifest.ip_detection.IJwrap.input_uri)
+
+    logger.setLevel(logging.DEBUG)
+    logging.getLogger("botocore").setLevel(logging.INFO)
+    logging.getLogger("urllib3").setLevel(logging.INFO)
+    logging.getLogger("s3fs").setLevel(logging.INFO)
+    logger.info(f"This is result postprocessing for session {args['session_id']}")
+    args.update(get_auto_parameters(args))
+
+    upload_alignment_results(args)
