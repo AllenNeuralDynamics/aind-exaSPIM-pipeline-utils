@@ -436,15 +436,15 @@ def create_one_projection_split_tiles_figure(
         outer_tile2,
         proj_axis=proj_axis,
     )
-    fig = plt.figure(figsize=(11, 6))
-    outer_grid = fig.add_gridspec(1, 3, wspace=0.2, hspace=0, left=0.05, right=0.95)
+    fig = plt.figure(figsize=(13, 6))
+    outer_grid = fig.add_gridspec(1, 3, wspace=0.2, hspace=0, left=0.08, right=0.92)
     inner_grids = []
     all_axs = []
     for i in range(3):
         inner_grids.append(
             outer_grid[0, i].subgridspec(subtiles1.shape[1], subtiles1.shape[0], wspace=0.1, hspace=0.1)
         )
-        all_axs.append(inner_grids[i].subplots(sharex="cols", sharey="rows"))
+        all_axs.append(inner_grids[i].subplots(sharex="col", sharey="row"))
     # i_py panel grid index for y, i_px panel grid index for x
     first_panel = True
     for i_py in range(subtiles1.shape[1]):
@@ -497,9 +497,9 @@ def create_one_projection_split_tiles_figure(
                             fig.colorbar(cbar_mappable[i], ax=all_axs[i])
                     first_panel = False
 
-    fig.text(0.02, 0.98, str(subtiles1.T), fontsize=14, ha="left", va="top")
-    fig.text(0.90, 0.98, str(subtiles2.T), fontsize=14, ha="left", va="top")
-    fig.suptitle(f"Tile{outer_tile1}-{outer_tile2} overlap ({title_mode})")
+    fig.text(0.01, 0.98, str(subtiles1.T), fontsize=12, ha="left", va="top")
+    fig.text(0.90, 0.98, str(subtiles2.T), fontsize=12, ha="left", va="top")
+    fig.suptitle(f"Tile{outer_tile1}-{outer_tile2} overlap ({title_mode}) in {AXIS_PROJ[proj_axis]} plane")
     if pdf_writer:
         pdf_writer.savefig(fig)
         plt.close(fig)
@@ -753,20 +753,24 @@ def run_split_combined_plots(
         xmldict["SpimData"]["ViewRegistrations"]
     )
     vertical_pairs = [
-        # (0, 3),
-        # (1, 4),
-        # (2, 5),
-        # (3, 6),
-        # (4, 7),
-        # (5, 8),
-        # (6, 9),
+        (0, 3),
+        (1, 4),
+        (2, 5),
+        (3, 6),
+        (4, 7),
+        (5, 8),
+        (6, 9),
         (7, 10),
-        # (8, 11),
-        # (9, 12),
-        # (10, 13),
-        # (11, 14),
+        (8, 11),
+        (9, 12),
+        (10, 13),
+        (11, 14),
     ]
-    horizontal_pairs = [(0, 1), (1, 2), (3, 4), (4, 5), (6, 7), (7, 8), (9, 10), (10, 11), (12, 13), (13, 14)]
+    horizontal_pairs = [
+        (0, 1), (1, 2), (3, 4), (4, 5), (6, 7), 
+        (7, 8), 
+        (9, 10), (10, 11), (12, 13), (13, 14)
+    ]
     if not prefix:
         prefix = ""
     if vert_proj_axis is None:
@@ -777,6 +781,7 @@ def run_split_combined_plots(
         st_cutouts = OrderedDict()
         st_overlaps = OrderedDict()
         for t1, t2 in vertical_pairs:
+            LOGGER.info(f"Start processing outer tile pair {t1}-{t2} for vertical overlaps")
             subtiles1, subtiles2 = split_img_loader.get_outer_boundary_subtiles(t1, t2, proj_axis=0)
             for st1, st2 in np.nditer([subtiles1, subtiles2], order="F"):
                 st1 = int(st1)
@@ -831,53 +836,52 @@ def run_split_combined_plots(
             #     common_scale=False,
             #     proj_axis=vert_proj_axis,
             # )
-    # if hor_proj_axis is None:
-    #     pdf_proj = ""
-    # else:
-    #     pdf_proj = "_" + AXIS_PROJ[hor_proj_axis]
-    # with PdfPages(f"{prefix}cutouts_horizontal_overlaps{pdf_proj}.pdf") as pdf_writer:
-    #     for t1, t2 in horizontal_pairs:
-    #         st1_cutout, st2_cutout, w_box_overlap = get_transformed_pair_cutouts(
-    #             t1, t2, 4, tile_transformations, tile_inv_transformations, tile_full_sizes, xmldict
-    #         )
-    #         if w_box_overlap is None:
-    #             LOGGER.warning(f"Tile {t1} and {t2} has world overlap box. Skipping.")
-    #             continue
-    #
-    #         create_one_projection_combined_figure(
-    #             t1,
-    #             t2,
-    #             ip_arrays,
-    #             tile_transformations,
-    #             tile_inv_transformations,
-    #             tile_full_sizes,
-    #             w_box_overlap,
-    #             st1_cutout,
-    #             st2_cutout,
-    #             ip_correspondences,
-    #             id_maps,
-    #             corresponding_only=False,
-    #             pdf_writer=pdf_writer,
-    #             common_scale=True,
-    #             proj_axis=hor_proj_axis,
-    #         )
-    #         create_one_projection_combined_figure(
-    #             t1,
-    #             t2,
-    #             ip_arrays,
-    #             tile_transformations,
-    #             tile_inv_transformations,
-    #             tile_full_sizes,
-    #             w_box_overlap,
-    #             st1_cutout,
-    #             st2_cutout,
-    #             ip_correspondences,
-    #             id_maps,
-    #             corresponding_only=True,
-    #             pdf_writer=pdf_writer,
-    #             common_scale=False,
-    #             proj_axis=hor_proj_axis,
-    #         )
+    if hor_proj_axis is None:
+        pdf_proj = ""
+    else:
+        pdf_proj = "_" + AXIS_PROJ[hor_proj_axis]
+    with PdfPages(f"{prefix}cutouts_horizontal_overlaps{pdf_proj}.pdf") as pdf_writer:
+        st_cutouts = OrderedDict()
+        st_overlaps = OrderedDict()
+        for t1, t2 in horizontal_pairs:
+            LOGGER.info(f"Start processing outer tile pair {t1}-{t2} for horizontal overlaps")
+            subtiles1, subtiles2 = split_img_loader.get_outer_boundary_subtiles(t1, t2, proj_axis=1)
+            for st1, st2 in np.nditer([subtiles1, subtiles2], order="F"):
+                st1 = int(st1)
+                st2 = int(st2)
+                st1_cutout, st2_cutout, w_box_overlap = get_transformed_pair_cutouts(
+                    st1,
+                    st2,
+                    4,
+                    tile_transformations,
+                    tile_inv_transformations,
+                    tile_full_sizes,
+                    image_loader=split_img_loader,
+                )
+                if w_box_overlap is None:
+                    LOGGER.warning(f"Tile {t1}-{st1} and {t2}-{st2} has no world overlap boxes. Skipping.")
+                    continue
+                st_cutouts[st1] = st1_cutout
+                st_cutouts[st2] = st2_cutout
+                st_overlaps[(st1, st2)] = w_box_overlap
+
+            create_one_projection_split_tiles_figure(
+                t1,
+                t2,
+                ip_arrays,
+                tile_transformations,
+                tile_inv_transformations,
+                tile_full_sizes,
+                st_overlaps,
+                st_cutouts,
+                ip_correspondences,
+                id_maps,
+                corresponding_only=False,
+                pdf_writer=pdf_writer,
+                common_scale=True,
+                proj_axis=hor_proj_axis,
+                split_img_loader=split_img_loader,
+            )
 
 
 def run_aff_cutout_plot():  # pragma: no cover
