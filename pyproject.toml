@@ -22,6 +22,7 @@ dependencies = [
     'pydantic',
     'psutil',
     'matplotlib',
+    'scipy',
     'aind-data-schema',
     'aind-codeocean-api==0.3.0',
     'aind-ng-link>=1.0.15',
