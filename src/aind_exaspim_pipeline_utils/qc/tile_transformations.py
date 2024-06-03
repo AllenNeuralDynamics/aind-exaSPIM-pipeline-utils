@@ -111,7 +111,7 @@ def get_tile_xyz_size(zgpath: str, level: int):  # pragma: no cover
 
 
 def read_tile_sizes(xml_ViewSetups: OrderedDict) -> dict[int, np.ndarray]:  # pragma: no cover
-    """Iterate over the 15 tile ids and read their sizes from the ViewSetup section of the xml file.
+    """Read all the tile sizes defined in the given xml section.
 
     Parameters
     ----------
@@ -125,15 +125,16 @@ def read_tile_sizes(xml_ViewSetups: OrderedDict) -> dict[int, np.ndarray]:  # pr
         as defined in the xml file, i.e. x,y,z.
     """
     tile_sizes = {}
-    for x in range(15):
-        for xml_vSetup in xml_ViewSetups["ViewSetup"]:
-            if xml_vSetup["id"]:
-                break
-        else:
-            raise KeyError("setupId {} was not found".format(x))
-
+    vsl = xml_ViewSetups["ViewSetup"]
+    if not isinstance(vsl, list):
+        # One entry case
+        vsl = [
+            vsl,
+        ]
+    for xml_vSetup in vsl:
+        x = int(xml_vSetup["id"])
         xml_sizes = xml_vSetup["size"]
-        tile_sizes[x] = np.array([int(x) for x in xml_sizes.strip().split()], dtype=int)
+        tile_sizes[x] = np.array([int(y) for y in xml_sizes.strip().split()], dtype=int)
     return tile_sizes
 
 
