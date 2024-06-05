@@ -126,27 +126,81 @@ def create_pair_overplot(
         pdf_writer.savefig(fig)
         plt.close(fig)
 
+def determine_data_vmin_vmax(data: Iterable[np.ndarray], percentile_cut: bool = True):
+    """Determine the value range for the images and histograms.
 
-def plot_one_combined_projection(
+    Assume positive values only. If the minimum value is negative, it is set to 0.
+    If the maximum value is less than 1, it is set to 1.
+
+    Parameters
+    ----------
+    data : Iterable[np.ndarray]
+        The image or histogram data to determine the common value range for.
+    percentile_cut : bool
+        Whether to use the 1st and 99th percentiles as the value range. If False,
+        the minimum and maximum values are used.
+
+    Returns
+    -------
+    vmin, vmax : float
+        The common value range for the images and histograms. Default is 0 to 1.
+    """
+    first = True
+    for img in data:
+        if first:
+            if percentile_cut:
+                vmin = np.percentile(img, 1)
+                vmax = np.percentile(img, 99)
+            else:
+                vmin = np.min(img)
+                vmax = np.max(img)
+            first = False
+        else:
+            if percentile_cut:
+                vmin = min(vmin, np.percentile(img, 1))
+                vmax = max(vmax, np.percentile(img, 99))
+            else:
+                vmin = min(vmin, np.min(img))
+                vmax = max(vmax, np.max(img))
+    if first:
+        vmin = 0
+        vmax = 1
+    if vmin < 0:
+        vmin = 0
+    if vmax < 1:
+        vmax = 1
+    return vmin, vmax
+
+
+def plot_one_panel_trio(
     tile1: int,
     tile2: int,
     ips1: Optional[np.ndarray],
     ips2: Optional[np.ndarray],
-    t1_cutout: np.ndarray,
-    t2_cutout: np.ndarray,
+    mips_t1: np.ndarray,
+    mips_t2: np.ndarray,
     w_box_overlap: Bbox,
     proj_axis: int,
     axs: Iterable[plt.Axes],
     fig: plt.Figure,
+    img_vmin1: float,
+    img_vmax1: float,
+    img_vmin2: float,
+    img_vmax2: float,
+    hist_vmax1: float,
+    hist_vmax2: float,
     common_scale: bool = False,
     subtile_plot: bool = False,
 ):  # pragma: no cover
-    """Plots one projection of tile1-tile2 boundary IP density and transformed images.
+    """Plots one trio of (sub)panels with IP density and transformed images.
+
+    If plotting outer tiles, the colorbars are drawn. If plotting subtiles, the colorbar mappables
+    are returned.
 
     Parameters
     ----------
     tile1, tile2 : int
-        Tile numbers.
+        Tile numbers. Can be the outer tile numbers or the subtiles.
     ips1, ips2 : Structured np.ndarray
         Arrays of interest points to show. Either the all of them
         in the overlap area or just the corresponding ones.
@@ -170,38 +224,40 @@ def plot_one_combined_projection(
         // 200,
     )
 
-    if ips1:
-        coords1 = ips1["loc_w"][:, PROJ_KEEP[proj_axis]]
-        H, xedges, yedges = np.histogram2d(coords1[:, 0], coords1[:, 1], bins=nbins)
-        vmax1 = np.max(H)
-    else:
-        vmax1 = 1
+    # if ips1 is not None:
+    #     coords1 = ips1["loc_w"][:, PROJ_KEEP[proj_axis]]
+    #     H, xedges, yedges = np.histogram2d(coords1[:, 0], coords1[:, 1], bins=nbins)
+    #     vmax1 = np.max(H)
+    # else:
+    #     vmax1 = 1
 
-    if ips2:
-        coords2 = ips2["loc_w"][:, PROJ_KEEP[proj_axis]]
-        H, xedges, yedges = np.histogram2d(coords2[:, 0], coords2[:, 1], bins=nbins)
-        vmax2 = np.max(H)
-    else:
-        vmax2 = 1
+    # if ips2 is not None:
+    #     coords2 = ips2["loc_w"][:, PROJ_KEEP[proj_axis]]
+    #     H, xedges, yedges = np.histogram2d(coords2[:, 0], coords2[:, 1], bins=nbins)
+    #     vmax2 = np.max(H)
+    # else:
+    #     vmax2 = 1
 
-    vmax = max(vmax1, vmax2)
+    # vmax = max(vmax1, vmax2)
 
-    mips_t1 = np.amax(t1_cutout, axis=proj_axis)
-    mips_t2 = np.amax(t2_cutout, axis=proj_axis)
+    # mips_t1 = np.amax(t1_cutout, axis=proj_axis)
+    # mips_t2 = np.amax(t2_cutout, axis=proj_axis)
 
     # Determine the image cutouts value ranges
 
-    img_vmin1 = np.percentile(t1_cutout, 1)
-    img_vmin2 = np.percentile(t2_cutout, 1)
-    img_vmin = min(img_vmin1, img_vmin2)
-    img_vmax1 = np.percentile(t1_cutout, 99)
-    if img_vmax1 < 1:
-        img_vmax1 = 1
-    img_vmax2 = np.percentile(t2_cutout, 99)
-    if img_vmax2 < 1:
-        img_vmax2 = 1
-    img_vmax = max(img_vmax1, img_vmax2)
+    # img_vmin1 = np.percentile(t1_cutout, 1)
+    # img_vmin2 = np.percentile(t2_cutout, 1)
+    # img_vmin = min(img_vmin1, img_vmin2)
+    # img_vmax1 = np.percentile(t1_cutout, 99)
+    # if img_vmax1 < 1:
+    #     img_vmax1 = 1
+    # img_vmax2 = np.percentile(t2_cutout, 99)
+    # if img_vmax2 < 1:
+    #     img_vmax2 = 1
+    # img_vmax = max(img_vmax1, img_vmax2)
     if common_scale:
+        img_vmin = min(img_vmin1, img_vmin2)
+        img_vmax = max(img_vmax1, img_vmax2)
         img_vmin1 = img_vmin
         img_vmin2 = img_vmin
         img_vmax1 = img_vmax
@@ -224,7 +280,8 @@ def plot_one_combined_projection(
         ],
     )
 
-    if ips1:
+    if ips1 is not None:
+        coords1 = ips1["loc_w"][:, PROJ_KEEP[proj_axis]]
         H = ax.hist2d(
             coords1[:, 0],
             coords1[:, 1],
@@ -233,7 +290,7 @@ def plot_one_combined_projection(
                 [w_box_overlap.bleft[PROJ_KEEP[proj_axis]][1], w_box_overlap.tright[PROJ_KEEP[proj_axis]][1]],
             ],
             vmin=0,
-            vmax=vmax,
+            vmax=hist_vmax1,
             bins=nbins,
             cmap="Blues",
             alpha=0.9,
@@ -246,7 +303,7 @@ def plot_one_combined_projection(
     ax.get_xaxis().set_major_formatter(ticker.FuncFormatter(format_large_numbers))
     ax.get_yaxis().set_major_formatter(ticker.FuncFormatter(format_large_numbers))
 
-    if ips1 and not subtile_plot:
+    if ips1 is not None and not subtile_plot:
         ax.set_aspect("equal")
         ax.set_title(f"T{tile1} in {AXIS_PROJ[proj_axis]}")
         fig.colorbar(H[3], ax=ax)
@@ -320,7 +377,8 @@ def plot_one_combined_projection(
             w_box_overlap.bleft[PROJ_KEEP[proj_axis]][1] - 0.5,
         ],
     )
-    if ips2:
+    if ips2 is not None:
+        coords2 = ips2["loc_w"][:, PROJ_KEEP[proj_axis]]
         H = ax.hist2d(
             coords2[:, 0],
             coords2[:, 1],
@@ -329,7 +387,7 @@ def plot_one_combined_projection(
                 [w_box_overlap.bleft[PROJ_KEEP[proj_axis]][1], w_box_overlap.tright[PROJ_KEEP[proj_axis]][1]],
             ],
             vmin=0,
-            vmax=vmax,
+            vmax=hist_vmax2,
             bins=nbins,
             cmap="Blues",
             alpha=0.9,
@@ -340,7 +398,7 @@ def plot_one_combined_projection(
         cbar_mappable.append(None)
     ax.get_xaxis().set_major_formatter(ticker.FuncFormatter(format_large_numbers))
     ax.get_yaxis().set_major_formatter(ticker.FuncFormatter(format_large_numbers))
-    if ips2 and not subtile_plot:
+    if ips2 is not None and not subtile_plot:
         ax.set_aspect("equal")
         ax.set_title(f"T{tile2} in {AXIS_PROJ[proj_axis]}")
         fig.colorbar(H[3], ax=ax)
@@ -384,7 +442,7 @@ def create_one_projection_combined_figure(
             ax1 = fig.add_subplot(3, 3, 3 * proj_axis + 1)
             ax2 = fig.add_subplot(3, 3, 3 * proj_axis + 2)
             ax3 = fig.add_subplot(3, 3, 3 * proj_axis + 3)
-            plot_one_combined_projection(
+            plot_one_panel_trio(
                 tile1,
                 tile2,
                 ips1,
@@ -399,7 +457,7 @@ def create_one_projection_combined_figure(
             )
     else:
         fig, axs = plt.subplots(1, 3, figsize=(15, 11))
-        plot_one_combined_projection(
+        plot_one_panel_trio(
             tile1, tile2, ips1, ips2, t1_cutout, t2_cutout, w_box_overlap, proj_axis, axs, fig, common_scale
         )
     fig.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.90)
@@ -407,6 +465,34 @@ def create_one_projection_combined_figure(
     if pdf_writer:
         pdf_writer.savefig(fig)
         plt.close(fig)
+
+def get_subtile_overlapping_IPs(st_pairs: Iterable[int,int], ip_arrays, tile_transformations, tile_inv_transformations, tile_sizes,
+                                ip_correspondences=None, id_maps=None, corresponding_only=False):
+    """Get the interest points of tile pairs. If corresponding_only is True, only the corresponding IPs are returned."""
+    st_ips1 = OrderedDict()
+    st_ips2 = OrderedDict()
+    for (st1, st2) in st_pairs:
+        if st1 in ip_arrays:
+            ips1 = get_tile_overlapping_IPs(
+                st1, st2, ip_arrays[st1], tile_transformations, tile_inv_transformations, tile_sizes
+            )
+        else:
+            ips1 = None
+
+        if st2 in ip_arrays:
+            ips2 = get_tile_overlapping_IPs(
+                st2, st1, ip_arrays[st2], tile_transformations, tile_inv_transformations, tile_sizes
+            )
+        else:
+            ips2 = None
+        if corresponding_only:
+            if ips1:
+                ips1 = filter_tile_corresponding_IPs(st1, st2, ips1, ip_correspondences, id_maps)
+            if ips2:
+                ips2 = filter_tile_corresponding_IPs(st2, st1, ips2, ip_correspondences, id_maps)
+
+        st_ips1[st1] = ips1
+        st_ips2[st2] = ips2
 
 
 def create_one_projection_split_tiles_figure(
@@ -426,7 +512,7 @@ def create_one_projection_split_tiles_figure(
     proj_axis: int = 0,
     split_img_loader: SplitImageLoader = None,
 ):  # pragma: no cover
-    """Create a plot of the tile1-tile2 boundary IP density and include the transformed images."""
+    """Create a grid plot of subtiles on the tile1-tile2 boundary IP density and include the transformed images."""
     title_mode = "all"
 
     if proj_axis is None:
@@ -445,6 +531,15 @@ def create_one_projection_split_tiles_figure(
             outer_grid[0, i].subgridspec(subtiles1.shape[1], subtiles1.shape[0], wspace=0.1, hspace=0.1)
         )
         all_axs.append(inner_grids[i].subplots(sharex="col", sharey="row"))
+    # Determine the interestpoints and mips images per
+    # sub tile and their vmin, vmax-es for all the panels on a common_scale
+    for i_py in range(subtiles1.shape[1]):
+        for i_px in range(subtiles1.shape[0]):
+            st1 = subtiles1[i_px, i_py]
+            st2 = subtiles2[i_px, i_py]
+            if (st1, st2) in st_overlaps:
+
+
     # i_py panel grid index for y, i_px panel grid index for x
     first_panel = True
     for i_py in range(subtiles1.shape[1]):
@@ -463,6 +558,7 @@ def create_one_projection_split_tiles_figure(
                     )
                 else:
                     ips1 = None
+
                 if st2 in ip_arrays:
                     ips2 = get_tile_overlapping_IPs(
                         st2, st1, ip_arrays[st2], tile_transformations, tile_inv_transformations, tile_sizes
@@ -476,7 +572,7 @@ def create_one_projection_split_tiles_figure(
                         ips2 = filter_tile_corresponding_IPs(st2, st1, ips2, ip_correspondences, id_maps)
                     title_mode = "corresp."
 
-                cbar_mappable = plot_one_combined_projection(
+                cbar_mappable = plot_one_panel_trio(
                     outer_tile1,
                     outer_tile2,
                     ips1,
@@ -780,6 +876,7 @@ def run_split_combined_plots(
     with PdfPages(f"{prefix}cutouts_split_vertical_overlaps{pdf_proj}.pdf") as pdf_writer:
         st_cutouts = OrderedDict()
         st_overlaps = OrderedDict()
+
         for t1, t2 in vertical_pairs:
             LOGGER.info(f"Start processing outer tile pair {t1}-{t2} for vertical overlaps")
             subtiles1, subtiles2 = split_img_loader.get_outer_boundary_subtiles(t1, t2, proj_axis=0)
@@ -801,6 +898,7 @@ def run_split_combined_plots(
                 st_cutouts[st1] = st1_cutout
                 st_cutouts[st2] = st2_cutout
                 st_overlaps[(st1, st2)] = w_box_overlap
+
 
             create_one_projection_split_tiles_figure(
                 t1,
