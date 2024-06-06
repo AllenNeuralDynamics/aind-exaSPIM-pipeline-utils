@@ -419,9 +419,9 @@ def get_subtile_overlapping_IPs(
         else:
             ips2 = None
         if corresponding_only:
-            if ips1:
+            if ips1 is not None:
                 ips1 = filter_tile_corresponding_IPs(st1, st2, ips1, ip_correspondences, id_maps)
-            if ips2:
+            if ips2 is not None:
                 ips2 = filter_tile_corresponding_IPs(st2, st1, ips2, ip_correspondences, id_maps)
 
         st_ips[(st1, st2)] = ips1, ips2
@@ -463,12 +463,12 @@ def get_histograms_vmin_vmax(
             )
             st_ips1=st_ips[(st1,st2)][0]
             if st_ips1 is not None:
-                coords1 = st_ips1["loc_w"][:, proj_axis]
+                coords1 = st_ips1["loc_w"][:, PROJ_KEEP[proj_axis]]
                 H, xedges, yedges = np.histogram2d(coords1[:, 0], coords1[:, 1], bins=nbins)
                 st_hist_vmax1 = max(st_hist_vmax1, np.max(H))
             st_ips2=st_ips[(st1,st2)][1]
             if st_ips2 is not None:
-                coords2 = st_ips2["loc_w"][:, proj_axis]
+                coords2 = st_ips2["loc_w"][:, PROJ_KEEP[proj_axis]]
                 H, xedges, yedges = np.histogram2d(coords2[:, 0], coords2[:, 1], bins=nbins)
                 st_hist_vmax2 = max(st_hist_vmax2, np.max(H))
     if common_scale:
@@ -565,6 +565,7 @@ def create_one_projection_combined_figure(
     )
 
     if proj_axis is None:
+        LOGGER.info("Creating all 3 projections figure")
         fig = plt.figure(figsize=(10, 12))
         for proj_axis in (0, 1, 2):
             ax1 = fig.add_subplot(3, 3, 3 * proj_axis + 1)
@@ -591,6 +592,7 @@ def create_one_projection_combined_figure(
                 subtile_plot=False,
             )
     else:
+        LOGGER.info(f"Creating {AXIS_PROJ[proj_axis]} projection figure")
         fig, axs = plt.subplots(1, 3, figsize=(15, 11))
         plot_one_panel_trio(
             tile1,
@@ -655,11 +657,8 @@ def create_one_projection_split_tiles_figure(
 
     if proj_axis is None:
         raise NotImplementedError("Split tiles combined plots not implemented for all projections")
-    # subtiles1, subtiles2 = split_img_loader.get_outer_boundary_subtiles(
-    #     outer_tile1,
-    #     outer_tile2,
-    #     proj_axis=proj_axis,
-    # )
+
+    LOGGER.info(f"Creating split tile {AXIS_PROJ[proj_axis]} projection figure")
     fig = plt.figure(figsize=(13, 6))
     outer_grid = fig.add_gridspec(1, 3, wspace=0.2, hspace=0, left=0.08, right=0.92)
     inner_grids = []
@@ -669,8 +668,8 @@ def create_one_projection_split_tiles_figure(
             outer_grid[0, i].subgridspec(subtiles1.shape[1], subtiles1.shape[0], wspace=0.1, hspace=0.1)
         )
         all_axs.append(inner_grids[i].subplots(sharex="col", sharey="row"))
-    # Determine the interestpoints and mips images per
-    # sub tile and their vmin, vmax-es for the left and right panels on a common_scale
+    # Determine the interestpoints and mips images for all subtile pairs
+    # their common vmin, vmax-es for the left and right panels
     st_pairs = [(int(st1), int(st2)) for (st1, st2) in np.nditer([subtiles1, subtiles2], order="F")]
     st_ips = get_subtile_overlapping_IPs(
         st_pairs,
@@ -849,7 +848,11 @@ def run_combined_plots(
         (10, 13),
         (11, 14),
     ]
-    horizontal_pairs = [(0, 1), (1, 2), (3, 4), (4, 5), (6, 7), (7, 8), (9, 10), (10, 11), (12, 13), (13, 14)]
+    horizontal_pairs = [
+        (0, 1), (1, 2), (3, 4), (4, 5), 
+    (6, 7), 
+    (7, 8), (9, 10), (10, 11), (12, 13), (13, 14)
+    ]
     if not prefix:
         prefix = ""
     if vert_proj_axis is None:
@@ -858,6 +861,7 @@ def run_combined_plots(
         pdf_proj = "_" + AXIS_PROJ[vert_proj_axis]
     with PdfPages(f"{prefix}cutouts_vertical_overlaps{pdf_proj}.pdf") as pdf_writer:
         for t1, t2 in vertical_pairs:
+            LOGGER.info(f"Processing vertical overlap {t1} - {t2}")
             t1_cutout, t2_cutout, w_box_overlap = get_transformed_pair_cutouts(
                 t1,
                 t2,
