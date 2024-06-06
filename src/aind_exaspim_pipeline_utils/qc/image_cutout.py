@@ -468,9 +468,15 @@ def create_one_projection_combined_figure(
 
 def get_subtile_overlapping_IPs(st_pairs: Iterable[int,int], ip_arrays, tile_transformations, tile_inv_transformations, tile_sizes,
                                 ip_correspondences=None, id_maps=None, corresponding_only=False):
-    """Get the interest points of tile pairs. If corresponding_only is True, only the corresponding IPs are returned."""
-    st_ips1 = OrderedDict()
-    st_ips2 = OrderedDict()
+    """Get the interest points of tile pairs. If corresponding_only is True, only the corresponding IPs are returned.
+
+    Returns
+    -------
+    st_ips : OrderedDict[(int,int), Tuple[np.ndarray, np.ndarray]]
+        The interest points of the tile pairs. The first element of the tuple is the IPs of the first tile,
+        the second element is the IPs of the second tile. If the tile does not have loaded IPs, the element is None.
+    """
+    st_ips = OrderedDict()
     for (st1, st2) in st_pairs:
         if st1 in ip_arrays:
             ips1 = get_tile_overlapping_IPs(
@@ -491,9 +497,75 @@ def get_subtile_overlapping_IPs(st_pairs: Iterable[int,int], ip_arrays, tile_tra
             if ips2:
                 ips2 = filter_tile_corresponding_IPs(st2, st1, ips2, ip_correspondences, id_maps)
 
-        st_ips1[st1] = ips1
-        st_ips2[st2] = ips2
+        st_ips[(st1,st2)] = ips1, ips2
+    return st_ips
 
+def get_histograms_vmin_vmax(st_pairs: Iterable[int,int], st_ips: Dict[int, np.ndarray],
+                             st_overlaps: Dict[Tuple[int, int], Bbox], proj_axis: int = 0,
+                             common_scale: bool = False):
+    """
+    Determine the minimum and maximum values for the left side subpanels (st1-s in st_pairs) and
+    the right side subpanels (st2-s in st_pairs).
+
+    Returns
+    -------
+    st_hist_vmax1, st_hist_vmax2 : float
+        The maximum values of the left and right side subpanels.
+    """
+    st_hist_vmax1 = 1
+    st_hist_vmax2 = 1
+    for st1, st2 in st_pairs:
+        if (st1, st2) in st_overlaps:
+            w_box_overlap = st_overlaps[(st1, st2)]
+            nbins = (
+           int(w_box_overlap.tright[PROJ_KEEP[proj_axis]][0] - w_box_overlap.bleft[PROJ_KEEP[proj_axis]][0]) // 200,
+           int(w_box_overlap.tright[PROJ_KEEP[proj_axis]][1] - w_box_overlap.bleft[PROJ_KEEP[proj_axis]][1]) // 200,
+            )
+            if st1 in st_ips:
+                coords1 = st_ips[st1]["loc_w"][:, proj_axis]
+                H, xedges, yedges = np.histogram2d(coords1[:, 0], coords1[:, 1], bins=nbins)
+                st_hist_vmax1 = max(st_hist_vmax1, np.max(H))
+            if st2 in st_ips:
+                coords2 = st_ips[st2]["loc_w"][:, proj_axis]
+                H, xedges, yedges = np.histogram2d(coords2[:, 0], coords2[:, 1], bins=nbins)
+                st_hist_vmax2 = max(st_hist_vmax2, np.max(H))
+    if common_scale:
+        hist_vmax = max(st_hist_vmax1, st_hist_vmax2)
+        st_hist_vmax1 = hist_vmax
+        st_hist_vmax2 = hist_vmax
+    return st_hist_vmax1, st_hist_vmax2
+def get_subtile_mips_and_values(st_pairs: Iterable[int,int], st_cutouts: Dict[int, np.ndarray], common_scale: bool = False,
+                                proj_axis: int = 0):
+    """
+    Determine the minimum and maximum values for the left side subpanels (st1-s in st_pairs) and
+    the right side subpanels (st2-s in st_pairs).
+
+    Returns
+    -------
+    st_mips : OrderedDict[int, np.ndarray]
+        The maximum intensity projections of all the subpanels. First the left sides, then the right sides.
+    img_vmin1, img_vmax1, img_vmin2, img_vmax2 : float
+        The minimum and maximum values of the left and right side subpanels. If common_scale is True,
+        the minimum and maximum values are the same for all subpanels.
+    """
+    st_mips1 = OrderedDict()
+    st_mips2 = OrderedDict()
+    for st1, st2 in st_pairs:
+        mips_t1 = np.amax(st_cutouts[st1], axis=proj_axis)
+        mips_t2 = np.amax(st_cutouts[st2], axis=proj_axis)
+        st_mips1[st1]=mips_t1
+        st_mips2[st2]=mips_t2
+    img_vmin1, img_vmax1 = determine_data_vmin_vmax(st_mips1, percentile_cut=True)
+    img_vmin2, img_vmax2 = determine_data_vmin_vmax(st_mips2, percentile_cut=True)
+    if common_scale:
+        img_vmin = min(img_vmin1, img_vmin2)
+        img_vmax = max(img_vmax1, img_vmax2)
+        img_vmin1 = img_vmin
+        img_vmin2 = img_vmin
+        img_vmax1 = img_vmax
+        img_vmax2 = img_vmax
+    st_mips1.update(st_mips2)
+    return st_mips1, img_vmin1, img_vmax1, img_vmin2, img_vmax2
 
 def create_one_projection_split_tiles_figure(
     outer_tile1: int,
@@ -512,7 +584,18 @@ def create_one_projection_split_tiles_figure(
     proj_axis: int = 0,
     split_img_loader: SplitImageLoader = None,
 ):  # pragma: no cover
-    """Create a grid plot of subtiles on the tile1-tile2 boundary IP density and include the transformed images."""
+    """Create a grid plot of subtiles on the tile1-tile2 boundary IP density and include the transformed images.
+
+    Below this function, all pairs are in relation to the tile1-tile2 boundary in this call.
+
+    Parameters
+    ----------
+    st_overlaps: Dict[Tuple[int, int], Bbox]
+        The overlap bounding boxes of the subtiles in this outer boundary.
+
+    st_cutouts: Dict[int, np.ndarray]
+        The cutouts of the subtiles in this outer boundary.
+    """
     title_mode = "all"
 
     if proj_axis is None:
@@ -532,13 +615,18 @@ def create_one_projection_split_tiles_figure(
         )
         all_axs.append(inner_grids[i].subplots(sharex="col", sharey="row"))
     # Determine the interestpoints and mips images per
-    # sub tile and their vmin, vmax-es for all the panels on a common_scale
-    for i_py in range(subtiles1.shape[1]):
-        for i_px in range(subtiles1.shape[0]):
-            st1 = subtiles1[i_px, i_py]
-            st2 = subtiles2[i_px, i_py]
-            if (st1, st2) in st_overlaps:
+    # sub tile and their vmin, vmax-es for the left and right panels on a common_scale
+    st_pairs = [(int(st1), int(st2)) for (st1, st2) in np.nditer([subtiles1, subtiles2], order='F')]
+    st_ips = get_subtile_overlapping_IPs(st_pairs, ip_arrays, tile_transformations, tile_inv_transformations, tile_sizes,
+                                         ip_correspondences, id_maps, corresponding_only)
 
+    # Histograms always have the same scale on the left and right
+    st_hist_vmax1, st_hist_vmax2 = get_histograms_vmin_vmax(
+        st_pairs, st_ips, st_overlaps, proj_axis, common_scale=True
+    )
+    # Images may have different scales on the left and right
+    st_mips, img_vmin1, img_vmax1, img_vmin2, img_vmax2 = get_subtile_mips_and_values(st_pairs,
+                                                                                      st_cutouts, common_scale, proj_axis)
 
     # i_py panel grid index for y, i_px panel grid index for x
     first_panel = True
@@ -552,37 +640,26 @@ def create_one_projection_split_tiles_figure(
 
             if (st1, st2) in st_overlaps:
                 w_box_overlap = st_overlaps[(st1, st2)]
-                if st1 in ip_arrays:
-                    ips1 = get_tile_overlapping_IPs(
-                        st1, st2, ip_arrays[st1], tile_transformations, tile_inv_transformations, tile_sizes
-                    )
-                else:
-                    ips1 = None
-
-                if st2 in ip_arrays:
-                    ips2 = get_tile_overlapping_IPs(
-                        st2, st1, ip_arrays[st2], tile_transformations, tile_inv_transformations, tile_sizes
-                    )
-                else:
-                    ips2 = None
                 if corresponding_only:
-                    if ips1:
-                        ips1 = filter_tile_corresponding_IPs(st1, st2, ips1, ip_correspondences, id_maps)
-                    if ips2:
-                        ips2 = filter_tile_corresponding_IPs(st2, st1, ips2, ip_correspondences, id_maps)
                     title_mode = "corresp."
 
                 cbar_mappable = plot_one_panel_trio(
                     outer_tile1,
                     outer_tile2,
-                    ips1,
-                    ips2,
-                    st_cutouts[st1],
-                    st_cutouts[st2],
+                    st_ips[(st1, st2)][0],
+                    st_ips[(st1, st2)][1],
+                    st_mips[st1],
+                    st_mips[st2],
                     w_box_overlap,
                     proj_axis,
                     axs,
                     fig,
+                    img_vmin1,
+                    img_vmax1,
+                    img_vmin2,
+                    img_vmax2,
+                    st_hist_vmax1,
+                    st_hist_vmax2,
                     common_scale,
                     subtile_plot=True,
                 )
