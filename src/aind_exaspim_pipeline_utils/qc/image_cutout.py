@@ -698,12 +698,11 @@ def create_one_projection_split_tiles_figure(
     fig.text(0.90, 0.98, str(subtiles2.T), fontsize=12, ha="left", va="top")
     if outer_tile2 is None:
         fig.suptitle(
-            f"Tile{outer_tile1}-{outer_tile2} overlap ({title_mode}) in {AXIS_PROJ[proj_axis]} plane"
-        )
-    else:
-        fig.suptitle(
             f"Tile{outer_tile1} middle inner boundary overlap ({title_mode}) in {AXIS_PROJ[proj_axis]} plane"
         )
+    else:
+        fig.suptitle(f"Tile{outer_tile1}-{outer_tile2} overlap ({title_mode}) in {AXIS_PROJ[proj_axis]} plane")
+
     if pdf_writer:
         pdf_writer.savefig(fig)
         plt.close(fig)
@@ -999,7 +998,11 @@ def run_split_combined_plots(
         # (10, 13),
         # (11, 14),
     ]
-    horizontal_pairs = [(0, 1), (1, 2), (3, 4), (4, 5), (6, 7), (7, 8), (9, 10), (10, 11), (12, 13), (13, 14)]
+    horizontal_pairs = [
+        # (0, 1),
+        (1, 2),
+        # (3, 4), (4, 5), (6, 7), (7, 8), (9, 10), (10, 11), (12, 13), (13, 14)
+    ]
     if not prefix:
         prefix = ""
     if vert_proj_axis is None:
@@ -1009,130 +1012,173 @@ def run_split_combined_plots(
     with PdfPages(f"{prefix}cutouts_split_vertical_overlaps{pdf_proj}.pdf") as pdf_writer:
         for t1, t2 in vertical_pairs:
             LOGGER.info(f"Start processing outer tile pair {t1}-{t2} for vertical overlaps")
-            subtiles1, subtiles2 = split_img_loader.get_outer_boundary_subtiles(t1, t2, proj_axis=0)
+            subtiles1, subtiles2 = split_img_loader.get_outer_boundary_subtiles(t1, t2, proj_axis=vert_proj_axis)
             st_pairs = [(int(st1), int(st2)) for (st1, st2) in np.nditer([subtiles1, subtiles2], order="F")]
             st_cutouts, st_overlaps = get_subtile_cutouts_and_overlaps(
                 st_pairs, tile_transformations, tile_inv_transformations, tile_full_sizes, split_img_loader
             )
-            create_one_projection_split_tiles_figure(
-                t1,
-                t2,
-                subtiles1,
-                subtiles2,
-                ip_arrays=ip_arrays,
-                tile_transformations=tile_transformations,
-                tile_inv_transformations=tile_inv_transformations,
-                tile_sizes=tile_full_sizes,
-                st_overlaps=st_overlaps,
-                st_cutouts=st_cutouts,
-                ip_correspondences=ip_correspondences,
-                id_maps=id_maps,
-                corresponding_only=False,
-                pdf_writer=pdf_writer,
-                common_scale=True,
-                proj_axis=vert_proj_axis,
-                split_img_loader=split_img_loader,
-            )
+            for corresponding in [False, True]:
+                create_one_projection_split_tiles_figure(
+                    t1,
+                    t2,
+                    subtiles1,
+                    subtiles2,
+                    ip_arrays=ip_arrays,
+                    tile_transformations=tile_transformations,
+                    tile_inv_transformations=tile_inv_transformations,
+                    tile_sizes=tile_full_sizes,
+                    st_overlaps=st_overlaps,
+                    st_cutouts=st_cutouts,
+                    ip_correspondences=ip_correspondences,
+                    id_maps=id_maps,
+                    corresponding_only=corresponding,
+                    pdf_writer=pdf_writer,
+                    common_scale=not corresponding,
+                    proj_axis=vert_proj_axis,
+                    split_img_loader=split_img_loader,
+                )
             # The inner overlaps on the right side
             LOGGER.info(f"Start processing middle inner boundary in {t1} for vertical overlaps")
-            subtiles1, subtiles2 = split_img_loader.get_inner_boundary_subtiles(t1, proj_axis=0)
+            subtiles1, subtiles2 = split_img_loader.get_inner_boundary_subtiles(t1, proj_axis=vert_proj_axis)
             st_pairs = [(int(st1), int(st2)) for (st1, st2) in np.nditer([subtiles1, subtiles2], order="F")]
             st_cutouts, st_overlaps = get_subtile_cutouts_and_overlaps(
                 st_pairs, tile_transformations, tile_inv_transformations, tile_full_sizes, split_img_loader
             )
-            create_one_projection_split_tiles_figure(
-                t1,
-                None,
-                subtiles1,
-                subtiles2,
-                ip_arrays=ip_arrays,
-                tile_transformations=tile_transformations,
-                tile_inv_transformations=tile_inv_transformations,
-                tile_sizes=tile_full_sizes,
-                st_overlaps=st_overlaps,
-                st_cutouts=st_cutouts,
-                ip_correspondences=ip_correspondences,
-                id_maps=id_maps,
-                corresponding_only=False,
-                pdf_writer=pdf_writer,
-                common_scale=True,
-                proj_axis=vert_proj_axis,
-                split_img_loader=split_img_loader,
+            for corresponding in [False, True]:
+                create_one_projection_split_tiles_figure(
+                    t1,
+                    None,
+                    subtiles1,
+                    subtiles2,
+                    ip_arrays=ip_arrays,
+                    tile_transformations=tile_transformations,
+                    tile_inv_transformations=tile_inv_transformations,
+                    tile_sizes=tile_full_sizes,
+                    st_overlaps=st_overlaps,
+                    st_cutouts=st_cutouts,
+                    ip_correspondences=ip_correspondences,
+                    id_maps=id_maps,
+                    corresponding_only=corresponding,
+                    pdf_writer=pdf_writer,
+                    common_scale=not corresponding,
+                    proj_axis=vert_proj_axis,
+                    split_img_loader=split_img_loader,
+                )
+        for t2 in (12, 13, 14):
+            # The last column inner boundary should be processed explicitly with t2
+            LOGGER.info(f"Last column vertical middle inner boundary in {t2}")
+            subtiles1, subtiles2 = split_img_loader.get_inner_boundary_subtiles(t2, proj_axis=vert_proj_axis)
+            st_pairs = [(int(st1), int(st2)) for (st1, st2) in np.nditer([subtiles1, subtiles2], order="F")]
+            st_cutouts, st_overlaps = get_subtile_cutouts_and_overlaps(
+                st_pairs, tile_transformations, tile_inv_transformations, tile_full_sizes, split_img_loader
             )
-        # The last column inner boundary should be processed explicitly with t2
-        LOGGER.info(f"Last vertical middle inner boundary in {t2}")
-        subtiles1, subtiles2 = split_img_loader.get_inner_boundary_subtiles(t2, proj_axis=0)
-        st_pairs = [(int(st1), int(st2)) for (st1, st2) in np.nditer([subtiles1, subtiles2], order="F")]
-        st_cutouts, st_overlaps = get_subtile_cutouts_and_overlaps(
-            st_pairs, tile_transformations, tile_inv_transformations, tile_full_sizes, split_img_loader
-        )
-        create_one_projection_split_tiles_figure(
-            t2,
-            None,
-            subtiles1,
-            subtiles2,
-            ip_arrays=ip_arrays,
-            tile_transformations=tile_transformations,
-            tile_inv_transformations=tile_inv_transformations,
-            tile_sizes=tile_full_sizes,
-            st_overlaps=st_overlaps,
-            st_cutouts=st_cutouts,
-            ip_correspondences=ip_correspondences,
-            id_maps=id_maps,
-            corresponding_only=False,
-            pdf_writer=pdf_writer,
-            common_scale=True,
-            proj_axis=vert_proj_axis,
-            split_img_loader=split_img_loader,
-        )
-
-    # if hor_proj_axis is None:
-    #     pdf_proj = ""
-    # else:
-    #     pdf_proj = "_" + AXIS_PROJ[hor_proj_axis]
-    # with PdfPages(f"{prefix}cutouts_split_horizontal_overlaps{pdf_proj}.pdf") as pdf_writer:
-    #     st_cutouts = OrderedDict()
-    #     st_overlaps = OrderedDict()
-    #     for t1, t2 in horizontal_pairs:
-    #         LOGGER.info(f"Start processing outer tile pair {t1}-{t2} for horizontal overlaps")
-    #         subtiles1, subtiles2 = img_loader.get_outer_boundary_subtiles(t1, t2, proj_axis=1)
-    #         for st1, st2 in np.nditer([subtiles1, subtiles2], order="F"):
-    #             st1 = int(st1)
-    #             st2 = int(st2)
-    #             st1_cutout, st2_cutout, w_box_overlap = get_transformed_pair_cutouts(
-    #                 st1,
-    #                 st2,
-    #                 4,
-    #                 tile_transformations,
-    #                 tile_inv_transformations,
-    #                 tile_full_sizes,
-    #                 image_loader=img_loader,
-    #             )
-    #             if w_box_overlap is None:
-    #                 LOGGER.warning(f"Tile {t1}-{st1} and {t2}-{st2} has no world overlap boxes. Skipping.")
-    #                 continue
-    #             st_cutouts[st1] = st1_cutout
-    #             st_cutouts[st2] = st2_cutout
-    #             st_overlaps[(st1, st2)] = w_box_overlap
-
-    #         create_one_projection_split_tiles_figure(
-    #             t1,
-    #             t2,
-    #             ip_arrays,
-    #             tile_transformations,
-    #             tile_inv_transformations,
-    #             tile_full_sizes,
-    #             st_overlaps,
-    #             st_cutouts,
-    #             ip_correspondences,
-    #             id_maps,
-    #             corresponding_only=False,
-    #             pdf_writer=pdf_writer,
-    #             common_scale=True,
-    #             proj_axis=hor_proj_axis,
-    #             img_loader=img_loader,
-    #         )
-
+            for corresponding in [False, True]:
+                create_one_projection_split_tiles_figure(
+                    t2,
+                    None,
+                    subtiles1,
+                    subtiles2,
+                    ip_arrays=ip_arrays,
+                    tile_transformations=tile_transformations,
+                    tile_inv_transformations=tile_inv_transformations,
+                    tile_sizes=tile_full_sizes,
+                    st_overlaps=st_overlaps,
+                    st_cutouts=st_cutouts,
+                    ip_correspondences=ip_correspondences,
+                    id_maps=id_maps,
+                    corresponding_only=corresponding,
+                    pdf_writer=pdf_writer,
+                    common_scale=not corresponding,
+                    proj_axis=vert_proj_axis,
+                    split_img_loader=split_img_loader,
+                )
+    if hor_proj_axis is None:
+        pdf_proj = ""
+    else:
+        pdf_proj = "_" + AXIS_PROJ[hor_proj_axis]
+    with PdfPages(f"{prefix}cutouts_split_horizontal_overlaps{pdf_proj}.pdf") as pdf_writer:
+        for t1, t2 in horizontal_pairs:
+            LOGGER.info(f"Start processing outer tile pair {t1}-{t2} for horizontal overlaps")
+            subtiles1, subtiles2 = split_img_loader.get_outer_boundary_subtiles(t1, t2, proj_axis=hor_proj_axis)
+            st_pairs = [(int(st1), int(st2)) for (st1, st2) in np.nditer([subtiles1, subtiles2], order="F")]
+            st_cutouts, st_overlaps = get_subtile_cutouts_and_overlaps(
+                st_pairs, tile_transformations, tile_inv_transformations, tile_full_sizes, split_img_loader
+            )
+            for corresponding in [False, True]:
+                create_one_projection_split_tiles_figure(
+                    t1,
+                    t2,
+                    subtiles1,
+                    subtiles2,
+                    ip_arrays=ip_arrays,
+                    tile_transformations=tile_transformations,
+                    tile_inv_transformations=tile_inv_transformations,
+                    tile_sizes=tile_full_sizes,
+                    st_overlaps=st_overlaps,
+                    st_cutouts=st_cutouts,
+                    ip_correspondences=ip_arrays,
+                    id_maps=id_maps,
+                    corresponding_only=corresponding,
+                    pdf_writer=pdf_writer,
+                    common_scale=not corresponding,
+                    proj_axis=hor_proj_axis,
+                    split_img_loader=split_img_loader,
+                )
+            # The inner overlaps on the top side
+            LOGGER.info(f"Start processing middle inner boundary in {t1} for horizontal overlaps")
+            subtiles1, subtiles2 = split_img_loader.get_inner_boundary_subtiles(t1, proj_axis=hor_proj_axis)
+            st_pairs = [(int(st1), int(st2)) for (st1, st2) in np.nditer([subtiles1, subtiles2], order="F")]
+            st_cutouts, st_overlaps = get_subtile_cutouts_and_overlaps(
+                st_pairs, tile_transformations, tile_inv_transformations, tile_full_sizes, split_img_loader
+            )
+            for corresponding in [False, True]:
+                create_one_projection_split_tiles_figure(
+                    t1,
+                    None,
+                    subtiles1,
+                    subtiles2,
+                    ip_arrays=ip_arrays,
+                    tile_transformations=tile_transformations,
+                    tile_inv_transformations=tile_inv_transformations,
+                    tile_sizes=tile_full_sizes,
+                    st_overlaps=st_overlaps,
+                    st_cutouts=st_cutouts,
+                    ip_correspondences=ip_arrays,
+                    id_maps=id_maps,
+                    corresponding_only=corresponding,
+                    pdf_writer=pdf_writer,
+                    common_scale=not corresponding,
+                    proj_axis=hor_proj_axis,
+                    split_img_loader=split_img_loader,
+                )
+            # If t2 is even, it is in the last row, need to process the inner boundary in the last row tile
+            if t2 % 2 == 0:
+                LOGGER.info(f"Last row horizontal middle inner boundary in {t2}")
+                subtiles1, subtiles2 = split_img_loader.get_inner_boundary_subtiles(t2, proj_axis=hor_proj_axis)
+                st_pairs = [(int(st1), int(st2)) for (st1, st2) in np.nditer([subtiles1, subtiles2], order="F")]
+                st_cutouts, st_overlaps = get_subtile_cutouts_and_overlaps(
+                    st_pairs, tile_transformations, tile_inv_transformations, tile_full_sizes, split_img_loader
+                )
+                for corresponding in [False, True]:
+                    create_one_projection_split_tiles_figure(
+                        t2,
+                        None,
+                        subtiles1,
+                        subtiles2,
+                        ip_arrays=ip_arrays,
+                        tile_transformations=tile_transformations,
+                        tile_inv_transformations=tile_inv_transformations,
+                        tile_sizes=tile_full_sizes,
+                        st_overlaps=st_overlaps,
+                        st_cutouts=st_cutouts,
+                        ip_correspondences=ip_arrays,
+                        id_maps=id_maps,
+                        corresponding_only=corresponding,
+                        pdf_writer=pdf_writer,
+                        common_scale=not corresponding,
+                        proj_axis=hor_proj_axis,
+                        split_img_loader=split_img_loader,
+                    )
 
 def run_aff_cutout_plot():  # pragma: no cover
     """Entry point for run_aff_cutout_plot."""
