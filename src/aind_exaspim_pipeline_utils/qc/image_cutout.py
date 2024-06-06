@@ -385,6 +385,7 @@ def plot_one_panel_trio(
         fig.colorbar(H[3], ax=ax)
     return cbar_mappable
 
+
 def get_subtile_overlapping_IPs(
     st_pairs: Iterable[Tuple[int, int]],
     ip_arrays,
@@ -461,12 +462,12 @@ def get_histograms_vmin_vmax(
                 )
                 // 200,
             )
-            st_ips1=st_ips[(st1,st2)][0]
+            st_ips1 = st_ips[(st1, st2)][0]
             if st_ips1 is not None:
                 coords1 = st_ips1["loc_w"][:, PROJ_KEEP[proj_axis]]
                 H, xedges, yedges = np.histogram2d(coords1[:, 0], coords1[:, 1], bins=nbins)
                 st_hist_vmax1 = max(st_hist_vmax1, np.max(H))
-            st_ips2=st_ips[(st1,st2)][1]
+            st_ips2 = st_ips[(st1, st2)][1]
             if st_ips2 is not None:
                 coords2 = st_ips2["loc_w"][:, PROJ_KEEP[proj_axis]]
                 H, xedges, yedges = np.histogram2d(coords2[:, 0], coords2[:, 1], bins=nbins)
@@ -740,7 +741,9 @@ def create_one_projection_split_tiles_figure(
             f"Tile{outer_tile1} middle inner boundary overlap ({title_mode}) in {AXIS_PROJ[proj_axis]} plane"
         )
     else:
-        fig.suptitle(f"Tile{outer_tile1}-{outer_tile2} overlap ({title_mode}) in {AXIS_PROJ[proj_axis]} plane")
+        fig.suptitle(
+            f"Tile{outer_tile1}-{outer_tile2} overlap ({title_mode}) in {AXIS_PROJ[proj_axis]} plane"
+        )
 
     if pdf_writer:
         pdf_writer.savefig(fig)
@@ -848,11 +851,7 @@ def run_combined_plots(
         (10, 13),
         (11, 14),
     ]
-    horizontal_pairs = [
-        (0, 1), (1, 2), (3, 4), (4, 5), 
-    (6, 7), 
-    (7, 8), (9, 10), (10, 11), (12, 13), (13, 14)
-    ]
+    horizontal_pairs = [(0, 1), (1, 2), (3, 4), (4, 5), (6, 7), (7, 8), (9, 10), (10, 11), (12, 13), (13, 14)]
     if not prefix:
         prefix = ""
     if vert_proj_axis is None:
@@ -1042,11 +1041,7 @@ def run_split_combined_plots(
         (10, 13),
         (11, 14),
     ]
-    horizontal_pairs = [
-        (0, 1),
-        (1, 2),
-        (3, 4), (4, 5), (6, 7), (7, 8), (9, 10), (10, 11), (12, 13), (13, 14)
-    ]
+    horizontal_pairs = [(0, 1), (1, 2), (3, 4), (4, 5), (6, 7), (7, 8), (9, 10), (10, 11), (12, 13), (13, 14)]
     if not prefix:
         prefix = ""
     if vert_proj_axis is None:
@@ -1056,7 +1051,9 @@ def run_split_combined_plots(
     with PdfPages(f"{prefix}cutouts_split_vertical_overlaps{pdf_proj}.pdf") as pdf_writer:
         for t1, t2 in vertical_pairs:
             LOGGER.info(f"Start processing outer tile pair {t1}-{t2} for vertical overlaps")
-            subtiles1, subtiles2 = split_img_loader.get_outer_boundary_subtiles(t1, t2, proj_axis=vert_proj_axis)
+            subtiles1, subtiles2 = split_img_loader.get_outer_boundary_subtiles(
+                t1, t2, proj_axis=vert_proj_axis
+            )
             st_pairs = [(int(st1), int(st2)) for (st1, st2) in np.nditer([subtiles1, subtiles2], order="F")]
             st_cutouts, st_overlaps = get_subtile_cutouts_and_overlaps(
                 st_pairs, tile_transformations, tile_inv_transformations, tile_full_sizes, split_img_loader
@@ -1140,7 +1137,9 @@ def run_split_combined_plots(
     with PdfPages(f"{prefix}cutouts_split_horizontal_overlaps{pdf_proj}.pdf") as pdf_writer:
         for t1, t2 in horizontal_pairs:
             LOGGER.info(f"Start processing outer tile pair {t1}-{t2} for horizontal overlaps")
-            subtiles1, subtiles2 = split_img_loader.get_outer_boundary_subtiles(t1, t2, proj_axis=hor_proj_axis)
+            subtiles1, subtiles2 = split_img_loader.get_outer_boundary_subtiles(
+                t1, t2, proj_axis=hor_proj_axis
+            )
             st_pairs = [(int(st1), int(st2)) for (st1, st2) in np.nditer([subtiles1, subtiles2], order="F")]
             st_cutouts, st_overlaps = get_subtile_cutouts_and_overlaps(
                 st_pairs, tile_transformations, tile_inv_transformations, tile_full_sizes, split_img_loader
@@ -1193,10 +1192,18 @@ def run_split_combined_plots(
             # If t2 is even, it is in the last row, need to process the inner boundary in the last row tile
             if t2 % 2 == 0:
                 LOGGER.info(f"Last row horizontal middle inner boundary in {t2}")
-                subtiles1, subtiles2 = split_img_loader.get_inner_boundary_subtiles(t2, proj_axis=hor_proj_axis)
-                st_pairs = [(int(st1), int(st2)) for (st1, st2) in np.nditer([subtiles1, subtiles2], order="F")]
+                subtiles1, subtiles2 = split_img_loader.get_inner_boundary_subtiles(
+                    t2, proj_axis=hor_proj_axis
+                )
+                st_pairs = [
+                    (int(st1), int(st2)) for (st1, st2) in np.nditer([subtiles1, subtiles2], order="F")
+                ]
                 st_cutouts, st_overlaps = get_subtile_cutouts_and_overlaps(
-                    st_pairs, tile_transformations, tile_inv_transformations, tile_full_sizes, split_img_loader
+                    st_pairs,
+                    tile_transformations,
+                    tile_inv_transformations,
+                    tile_full_sizes,
+                    split_img_loader,
                 )
                 for corresponding in [False, True]:
                     create_one_projection_split_tiles_figure(
@@ -1217,6 +1224,7 @@ def run_split_combined_plots(
                         common_scale=not corresponding,
                         proj_axis=hor_proj_axis,
                     )
+
 
 def run_aff_cutout_plot():  # pragma: no cover
     """Entry point for run_aff_cutout_plot."""

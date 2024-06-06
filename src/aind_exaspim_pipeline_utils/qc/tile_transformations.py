@@ -248,11 +248,14 @@ def read_tiles_interestpoints(
         intensities = zg[f"tpId_0_viewSetupId_{x}/{ip_label}/interestpoints/intensities"]
 
         # Record array with integer id and 3 float column for loc
-        T = np.zeros(id.shape[0], dtype=[("id", int), ("loc", float, 3), ("intensity", np.float32)])
-        T["id"] = id[:, 0]
-        T["loc"] = loc
-        T["intensity"] = intensities[:, 0]
-        ip_arrays[x] = T
+        try:
+            T = np.zeros(id.shape[0], dtype=[("id", int), ("loc", float, 3), ("intensity", np.float32)])
+            T["id"] = id[:, 0]
+            T["loc"] = loc
+            T["intensity"] = intensities[:, 0]
+            ip_arrays[x] = T
+        except ValueError:
+            ip_arrays[x] = None
         LOGGER.info(f"Loaded {len(T)} interestpoint for tile {x}")
     return ip_arrays
 
