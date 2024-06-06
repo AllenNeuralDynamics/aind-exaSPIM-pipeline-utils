@@ -385,69 +385,6 @@ def plot_one_panel_trio(
         fig.colorbar(H[3], ax=ax)
     return cbar_mappable
 
-
-def create_one_projection_combined_figure(
-    tile1: int,
-    tile2: int,
-    ip_arrays,
-    tile_transformations,
-    tile_inv_transformations,
-    tile_sizes,
-    w_box_overlap: Bbox,
-    t1_cutout,
-    t2_cutout,
-    ip_correspondences=None,
-    id_maps=None,
-    corresponding_only=False,
-    pdf_writer=None,
-    common_scale: bool = False,
-    proj_axis: Optional[int] = 0,
-):  # pragma: no cover
-    """Create a plot of the tile1-tile2 boundary IP density and include the transformed images."""
-    title_mode = "all"
-
-    ips1 = get_tile_overlapping_IPs(
-        tile1, tile2, ip_arrays[tile1], tile_transformations, tile_inv_transformations, tile_sizes
-    )
-    ips2 = get_tile_overlapping_IPs(
-        tile2, tile1, ip_arrays[tile2], tile_transformations, tile_inv_transformations, tile_sizes
-    )
-    if corresponding_only:
-        ips1 = filter_tile_corresponding_IPs(tile1, tile2, ips1, ip_correspondences, id_maps)
-        ips2 = filter_tile_corresponding_IPs(tile2, tile1, ips2, ip_correspondences, id_maps)
-        title_mode = "corresp."
-
-    if proj_axis is None:
-        fig = plt.figure(figsize=(10, 12))
-        for proj_axis in (0, 1, 2):
-            ax1 = fig.add_subplot(3, 3, 3 * proj_axis + 1)
-            ax2 = fig.add_subplot(3, 3, 3 * proj_axis + 2)
-            ax3 = fig.add_subplot(3, 3, 3 * proj_axis + 3)
-            plot_one_panel_trio(
-                tile1,
-                tile2,
-                ips1,
-                ips2,
-                t1_cutout,
-                t2_cutout,
-                w_box_overlap,
-                proj_axis,
-                [ax1, ax2, ax3],
-                fig,
-                common_scale,
-            )
-    else:
-        fig, axs = plt.subplots(1, 3, figsize=(15, 11))
-        plot_one_panel_trio(
-            tile1, tile2, ips1, ips2, t1_cutout, t2_cutout, w_box_overlap, proj_axis, axs, fig, common_scale
-        )
-    fig.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.90)
-    fig.suptitle(f"Tile{tile1}-{tile2} overlap ({title_mode})")
-    if pdf_writer:
-        pdf_writer.savefig(fig)
-        plt.close(fig)
-
-
 def get_subtile_overlapping_IPs(
     st_pairs: Iterable[Tuple[int, int]],
     ip_arrays,
@@ -493,7 +430,7 @@ def get_subtile_overlapping_IPs(
 
 def get_histograms_vmin_vmax(
     st_pairs: Iterable[Tuple[int, int]],
-    st_ips: Dict[int, np.ndarray],
+    st_ips: Dict[Tuple[int, int], Tuple[np.ndarray, np.ndarray]],
     st_overlaps: Dict[Tuple[int, int], Bbox],
     proj_axis: int = 0,
     common_scale: bool = False,
@@ -524,12 +461,14 @@ def get_histograms_vmin_vmax(
                 )
                 // 200,
             )
-            if st1 in st_ips:
-                coords1 = st_ips[st1]["loc_w"][:, proj_axis]
+            st_ips1=st_ips[(st1,st2)][0]
+            if st_ips1 is not None:
+                coords1 = st_ips1["loc_w"][:, proj_axis]
                 H, xedges, yedges = np.histogram2d(coords1[:, 0], coords1[:, 1], bins=nbins)
                 st_hist_vmax1 = max(st_hist_vmax1, np.max(H))
-            if st2 in st_ips:
-                coords2 = st_ips[st2]["loc_w"][:, proj_axis]
+            st_ips2=st_ips[(st1,st2)][1]
+            if st_ips2 is not None:
+                coords2 = st_ips2["loc_w"][:, proj_axis]
                 H, xedges, yedges = np.histogram2d(coords2[:, 0], coords2[:, 1], bins=nbins)
                 st_hist_vmax2 = max(st_hist_vmax2, np.max(H))
     if common_scale:
@@ -578,6 +517,108 @@ def get_subtile_mips_and_values(
     return st_mips1, img_vmin1, img_vmax1, img_vmin2, img_vmax2
 
 
+def create_one_projection_combined_figure(
+    tile1: int,
+    tile2: int,
+    ip_arrays,
+    tile_transformations,
+    tile_inv_transformations,
+    tile_sizes,
+    w_box_overlap: Bbox,
+    t1_cutout,
+    t2_cutout,
+    ip_correspondences=None,
+    id_maps=None,
+    corresponding_only=False,
+    pdf_writer=None,
+    common_scale: bool = False,
+    proj_axis: Optional[int] = 0,
+):  # pragma: no cover
+    """Create a plot of the tile1-tile2 boundary IP density and include the transformed images."""
+    title_mode = "all"
+    if corresponding_only:
+        title_mode = "corresp."
+
+    # Determine the interestpoints and mips images per
+    # sub tile and their vmin, vmax-es for the left and right panels on a common_scale
+    st_pairs = [(tile1, tile2)]
+    st_overlaps = {(tile1, tile2): w_box_overlap}
+    st_cutouts = {tile1: t1_cutout, tile2: t2_cutout}
+    st_ips = get_subtile_overlapping_IPs(
+        st_pairs,
+        ip_arrays,
+        tile_transformations,
+        tile_inv_transformations,
+        tile_sizes,
+        ip_correspondences,
+        id_maps,
+        corresponding_only,
+    )
+
+    # Histograms always have the same scale on the left and right
+    st_hist_vmax1, st_hist_vmax2 = get_histograms_vmin_vmax(
+        st_pairs, st_ips, st_overlaps, proj_axis, common_scale=True
+    )
+    # Images may have different scales on the left and right
+    st_mips, img_vmin1, img_vmax1, img_vmin2, img_vmax2 = get_subtile_mips_and_values(
+        st_pairs, st_cutouts, proj_axis
+    )
+
+    if proj_axis is None:
+        fig = plt.figure(figsize=(10, 12))
+        for proj_axis in (0, 1, 2):
+            ax1 = fig.add_subplot(3, 3, 3 * proj_axis + 1)
+            ax2 = fig.add_subplot(3, 3, 3 * proj_axis + 2)
+            ax3 = fig.add_subplot(3, 3, 3 * proj_axis + 3)
+            plot_one_panel_trio(
+                tile1,
+                tile2,
+                st_ips[(tile1, tile2)][0],
+                st_ips[(tile1, tile2)][1],
+                st_mips[tile1],
+                st_mips[tile2],
+                w_box_overlap,
+                proj_axis,
+                [ax1, ax2, ax3],
+                fig,
+                img_vmin1,
+                img_vmax1,
+                img_vmin2,
+                img_vmax2,
+                st_hist_vmax1,
+                st_hist_vmax2,
+                common_scale,
+                subtile_plot=False,
+            )
+    else:
+        fig, axs = plt.subplots(1, 3, figsize=(15, 11))
+        plot_one_panel_trio(
+            tile1,
+            tile2,
+            st_ips[(tile1, tile2)][0],
+            st_ips[(tile1, tile2)][1],
+            st_mips[tile1],
+            st_mips[tile2],
+            w_box_overlap,
+            proj_axis,
+            axs,
+            fig,
+            img_vmin1,
+            img_vmax1,
+            img_vmin2,
+            img_vmax2,
+            st_hist_vmax1,
+            st_hist_vmax2,
+            common_scale,
+            subtile_plot=False,
+        )
+    fig.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.90)
+    fig.suptitle(f"Tile{tile1}-{tile2} overlap ({title_mode})")
+    if pdf_writer:
+        pdf_writer.savefig(fig)
+        plt.close(fig)
+
+
 def create_one_projection_split_tiles_figure(
     outer_tile1: int,
     outer_tile2: Optional[int],
@@ -595,7 +636,6 @@ def create_one_projection_split_tiles_figure(
     pdf_writer=None,
     common_scale: bool = False,
     proj_axis: int = 0,
-    split_img_loader: SplitImageLoader = None,
 ):  # pragma: no cover
     """Create a grid plot of subtiles on the tile1-tile2 boundary IP density and include the transformed images.
 
@@ -985,23 +1025,23 @@ def run_split_combined_plots(
         xmldict["SpimData"]["ViewRegistrations"]
     )
     vertical_pairs = [
-        # (0, 3),
-        # (1, 4),
-        # (2, 5),
-        # (3, 6),
-        # (4, 7),
-        # (5, 8),
-        # (6, 9),
+        (0, 3),
+        (1, 4),
+        (2, 5),
+        (3, 6),
+        (4, 7),
+        (5, 8),
+        (6, 9),
         (7, 10),
-        # (8, 11),
-        # (9, 12),
-        # (10, 13),
-        # (11, 14),
+        (8, 11),
+        (9, 12),
+        (10, 13),
+        (11, 14),
     ]
     horizontal_pairs = [
-        # (0, 1),
+        (0, 1),
         (1, 2),
-        # (3, 4), (4, 5), (6, 7), (7, 8), (9, 10), (10, 11), (12, 13), (13, 14)
+        (3, 4), (4, 5), (6, 7), (7, 8), (9, 10), (10, 11), (12, 13), (13, 14)
     ]
     if not prefix:
         prefix = ""
@@ -1035,7 +1075,6 @@ def run_split_combined_plots(
                     pdf_writer=pdf_writer,
                     common_scale=not corresponding,
                     proj_axis=vert_proj_axis,
-                    split_img_loader=split_img_loader,
                 )
             # The inner overlaps on the right side
             LOGGER.info(f"Start processing middle inner boundary in {t1} for vertical overlaps")
@@ -1062,7 +1101,6 @@ def run_split_combined_plots(
                     pdf_writer=pdf_writer,
                     common_scale=not corresponding,
                     proj_axis=vert_proj_axis,
-                    split_img_loader=split_img_loader,
                 )
         for t2 in (12, 13, 14):
             # The last column inner boundary should be processed explicitly with t2
@@ -1090,7 +1128,6 @@ def run_split_combined_plots(
                     pdf_writer=pdf_writer,
                     common_scale=not corresponding,
                     proj_axis=vert_proj_axis,
-                    split_img_loader=split_img_loader,
                 )
     if hor_proj_axis is None:
         pdf_proj = ""
@@ -1122,7 +1159,6 @@ def run_split_combined_plots(
                     pdf_writer=pdf_writer,
                     common_scale=not corresponding,
                     proj_axis=hor_proj_axis,
-                    split_img_loader=split_img_loader,
                 )
             # The inner overlaps on the top side
             LOGGER.info(f"Start processing middle inner boundary in {t1} for horizontal overlaps")
@@ -1149,7 +1185,6 @@ def run_split_combined_plots(
                     pdf_writer=pdf_writer,
                     common_scale=not corresponding,
                     proj_axis=hor_proj_axis,
-                    split_img_loader=split_img_loader,
                 )
             # If t2 is even, it is in the last row, need to process the inner boundary in the last row tile
             if t2 % 2 == 0:
@@ -1177,7 +1212,6 @@ def run_split_combined_plots(
                         pdf_writer=pdf_writer,
                         common_scale=not corresponding,
                         proj_axis=hor_proj_axis,
-                        split_img_loader=split_img_loader,
                     )
 
 def run_aff_cutout_plot():  # pragma: no cover
