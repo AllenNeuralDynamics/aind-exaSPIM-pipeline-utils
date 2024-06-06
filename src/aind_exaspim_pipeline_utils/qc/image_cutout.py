@@ -162,6 +162,7 @@ def determine_data_vmin_vmax(data: Iterable[np.ndarray], percentile_cut: bool = 
             else:
                 vmin = min(vmin, np.min(img))
                 vmax = max(vmax, np.max(img))
+
     if first:
         vmin = 0
         vmax = 1
@@ -255,13 +256,6 @@ def plot_one_panel_trio(
     # if img_vmax2 < 1:
     #     img_vmax2 = 1
     # img_vmax = max(img_vmax1, img_vmax2)
-    if common_scale:
-        img_vmin = min(img_vmin1, img_vmin2)
-        img_vmax = max(img_vmax1, img_vmax2)
-        img_vmin1 = img_vmin
-        img_vmin2 = img_vmin
-        img_vmax1 = img_vmax
-        img_vmax2 = img_vmax
 
     cbar_mappable = []
     ax_iter = iter(axs)
@@ -311,14 +305,26 @@ def plot_one_panel_trio(
     # Middle panel the overlap cutout of the tiles
     ax = next(ax_iter)
 
+    cimg_vmin1 = img_vmin1
+    cimg_vmax1 = img_vmax1
+    cimg_vmin2 = img_vmin2
+    cimg_vmax2 = img_vmax2
+    if common_scale:
+        img_vmin = min(img_vmin1, img_vmin2)
+        img_vmax = max(img_vmax1, img_vmax2)
+        cimg_vmin1 = img_vmin
+        cimg_vmax1 = img_vmax
+        cimg_vmin2 = img_vmin
+        cimg_vmax2 = img_vmax
+
     # Create the RGB image of the two cutouts
     mips_rgb = np.zeros((mips_t1.shape[1], mips_t1.shape[0], 3), dtype=float)
-    A = np.maximum([[0.0]], mips_t1.transpose() - img_vmin1)
-    A /= img_vmax1
+    A = np.maximum([[0.0]], mips_t1.transpose() - cimg_vmin1)
+    A /= cimg_vmax1
     A = np.minimum([[1.0]], A)
     mips_rgb[:, :, 0] = A
-    A = np.maximum([[0.0]], mips_t2.transpose() - img_vmin2)
-    A /= img_vmax2
+    A = np.maximum([[0.0]], mips_t2.transpose() - cimg_vmin2)
+    A /= cimg_vmax2
     A = np.minimum([[1.0]], A)
     mips_rgb[:, :, 1] = A
 
@@ -344,7 +350,7 @@ def plot_one_panel_trio(
         if subtile_plot:
             cbar_mappable.append(
                 matplotlib.cm.ScalarMappable(
-                    norm=matplotlib.colors.Normalize(img_vmin, img_vmax), cmap=custom_cmap
+                    norm=matplotlib.colors.Normalize(cimg_vmin1, cimg_vmax1), cmap=custom_cmap
                 )
             )
         else:
@@ -365,10 +371,10 @@ def plot_one_panel_trio(
     ax = next(ax_iter)
 
     ax.imshow(
-        mips_t1.transpose(),
+        mips_t2.transpose(),
         cmap="gray",
-        vmin=img_vmin1,
-        vmax=img_vmax1,
+        vmin=img_vmin2,
+        vmax=img_vmax2,
         interpolation="none",
         extent=[
             w_box_overlap.bleft[PROJ_KEEP[proj_axis]][0] - 0.5,
@@ -535,7 +541,7 @@ def get_histograms_vmin_vmax(st_pairs: Iterable[Tuple[int,int]], st_ips: Dict[in
         st_hist_vmax1 = hist_vmax
         st_hist_vmax2 = hist_vmax
     return st_hist_vmax1, st_hist_vmax2
-def get_subtile_mips_and_values(st_pairs: Iterable[Tuple[int,int]], st_cutouts: Dict[int, np.ndarray], common_scale: bool = False,
+def get_subtile_mips_and_values(st_pairs: Iterable[Tuple[int,int]], st_cutouts: Dict[int, np.ndarray],
                                 proj_axis: int = 0):
     """
     Determine the minimum and maximum values for the left side subpanels (st1-s in st_pairs) and
@@ -551,20 +557,24 @@ def get_subtile_mips_and_values(st_pairs: Iterable[Tuple[int,int]], st_cutouts: 
     """
     st_mips1 = OrderedDict()
     st_mips2 = OrderedDict()
+    st_cutouts1 = OrderedDict()
+    st_cutouts2 = OrderedDict()
     for st1, st2 in st_pairs:
+        st_cutouts1[st1] = st_cutouts[st1]
+        st_cutouts2[st2] = st_cutouts[st2]
         mips_t1 = np.amax(st_cutouts[st1], axis=proj_axis)
         mips_t2 = np.amax(st_cutouts[st2], axis=proj_axis)
         st_mips1[st1]=mips_t1
         st_mips2[st2]=mips_t2
-    img_vmin1, img_vmax1 = determine_data_vmin_vmax(st_mips1, percentile_cut=True)
-    img_vmin2, img_vmax2 = determine_data_vmin_vmax(st_mips2, percentile_cut=True)
-    if common_scale:
-        img_vmin = min(img_vmin1, img_vmin2)
-        img_vmax = max(img_vmax1, img_vmax2)
-        img_vmin1 = img_vmin
-        img_vmin2 = img_vmin
-        img_vmax1 = img_vmax
-        img_vmax2 = img_vmax
+    img_vmin1, img_vmax1 = determine_data_vmin_vmax(st_cutouts1.values(), percentile_cut=True)
+    img_vmin2, img_vmax2 = determine_data_vmin_vmax(st_cutouts2.values(), percentile_cut=True)
+    # if common_scale:
+    #     img_vmin = min(img_vmin1, img_vmin2)
+    #     img_vmax = max(img_vmax1, img_vmax2)
+    #     img_vmin1 = img_vmin
+    #     img_vmin2 = img_vmin
+    #     img_vmax1 = img_vmax
+    #     img_vmax2 = img_vmax
     st_mips1.update(st_mips2)
     return st_mips1, img_vmin1, img_vmax1, img_vmin2, img_vmax2
 
@@ -627,7 +637,7 @@ def create_one_projection_split_tiles_figure(
     )
     # Images may have different scales on the left and right
     st_mips, img_vmin1, img_vmax1, img_vmin2, img_vmax2 = get_subtile_mips_and_values(st_pairs,
-                                                                                      st_cutouts, common_scale, proj_axis)
+                                                                                      st_cutouts, proj_axis)
 
     # i_py panel grid index for y, i_px panel grid index for x
     first_panel = True
