@@ -329,6 +329,7 @@ def main():  # pragma: no cover
 
     args = dict(parser.args)
     logger.setLevel(args["log_level"])
+    logger.info(f"Args: {args}")
     args.update(get_auto_parameters(args))
     logger.info("Invocation: %s", sys.argv)
 
