@@ -580,10 +580,10 @@ def imagej_do_registrations(pipeline_manifest: ExaspimProcessingPipeline,
 
 import click
 
-@click.command()
-@click.option('do_detection', type=click.BOOL, default=True)
-@click.option('do_registrations', type=click.BOOL, default=True)
-def imagej_wrapper_main(do_detection: bool, do_registration: bool):  # pragma: no cover
+@click.command
+@click.option('--do_detection', type=click.BOOL, default=True)
+@click.option('--do_registrations', type=click.BOOL, default=True)
+def imagej_wrapper_main(do_detection: bool, do_registrations: bool):  # pragma: no cover
     """Entry point with the manifest config."""
     # logging.basicConfig(format="%(asctime)s %(name)s %(levelname)-7s %(message)s")
     # arguments passed through the cli
@@ -660,7 +660,7 @@ def imagej_wrapper_main(do_detection: bool, do_registration: bool):  # pragma: n
             if r != 0:
                 raise RuntimeError("IP detection command failed.")
     else:
-        if pipeline_manifest.ip_registrations and do_registration:
+        if pipeline_manifest.ip_registrations and do_registrations:
             # At the moment we did not define an IP detection only dataset
             # We assume that interest point detections are already present in the input dataset
             # in the folder of the xml dataset file (in the manifest folder)
