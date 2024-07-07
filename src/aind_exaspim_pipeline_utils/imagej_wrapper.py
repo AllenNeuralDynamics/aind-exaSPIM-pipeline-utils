@@ -581,8 +581,8 @@ def imagej_do_registrations(pipeline_manifest: ExaspimProcessingPipeline,
 import click
 
 @click.command
-@click.option('--do_detection', type=click.BOOL, default=True)
-@click.option('--do_registrations', type=click.BOOL, default=True)
+@click.option('--detection', type=click.BOOL, default=True)
+@click.option('--registrations', type=click.BOOL, default=True)
 def imagej_wrapper_main(do_detection: bool, do_registrations: bool):  # pragma: no cover
     """Entry point with the manifest config."""
     # logging.basicConfig(format="%(asctime)s %(name)s %(levelname)-7s %(message)s")
