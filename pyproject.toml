@@ -17,6 +17,7 @@ readme = "README.md"
 dynamic = ["version"]
 
 dependencies = [
+    'click',
     'argschema',
     's3fs',
     'pydantic',

@@ -428,7 +428,6 @@ def main():  # pragma: no cover
 
     logger.info("Done.")
 
-
 def get_imagej_wrapper_metadata(
         parameters: dict, input_location: str = None, output_location: str = None
 ) -> DataProcess:  # pragma: no cover
@@ -579,16 +578,15 @@ def imagej_do_registrations(pipeline_manifest: ExaspimProcessingPipeline,
     logger.info("Creating EMR ready xml from bigstitcher.xml")
     create_emr_ready_xml(args, num_regs=reg_index)
 
+import click
 
-def imagej_wrapper_main():  # pragma: no cover
+@click.command()
+@click.option('do_detection', type=click.BOOL, default=True)
+@click.option('do_registrations', type=click.BOOL, default=True)
+def imagej_wrapper_main(do_detection: bool, do_registration: bool):  # pragma: no cover
     """Entry point with the manifest config."""
     # logging.basicConfig(format="%(asctime)s %(name)s %(levelname)-7s %(message)s")
-    parser = argschema.ArgSchemaParser(schema_type=ImageJWrapperSchema)
-
     # arguments passed through the cli
-    env_args = dict(parser.args)
-    logger.setLevel(args["log_level"])
-    logger.info(f"Args: {args}")
     logging.basicConfig(format="%(asctime)s %(levelname)-7s %(message)s")
 
     # Add a file output, too for the logs
@@ -604,7 +602,7 @@ def imagej_wrapper_main():  # pragma: no cover
     args = {
         "dataset_xml": "../data/manifest/dataset.xml",
         "session_id": pipeline_manifest.pipeline_suffix,
-        "log_level": env_args['log_level'],
+        "log_level": logging.DEBUG,
         "name": pipeline_manifest.name,
         "subject_id": pipeline_manifest.subject_id,
     }
@@ -633,7 +631,7 @@ def imagej_wrapper_main():  # pragma: no cover
     )
     write_process_metadata(process_meta, prefix="ipreg")
     ip_det_parameters = pipeline_manifest.ip_detection
-    if ip_det_parameters is not None and env_args['do_detection']:
+    if ip_det_parameters is not None and do_detection:
         logger.info("Copying input xml %s -> %s", args["dataset_xml"], args["process_xml"])
         shutil.copy(args["dataset_xml"], args["process_xml"])
 
@@ -662,7 +660,7 @@ def imagej_wrapper_main():  # pragma: no cover
             if r != 0:
                 raise RuntimeError("IP detection command failed.")
     else:
-        if pipeline_manifest.ip_registrations and env_args['do_registrations']:
+        if pipeline_manifest.ip_registrations and do_registration:
             # At the moment we did not define an IP detection only dataset
             # We assume that interest point detections are already present in the input dataset
             # in the folder of the xml dataset file (in the manifest folder)
