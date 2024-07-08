@@ -660,7 +660,7 @@ def imagej_wrapper_main(detection: bool, registrations: bool):  # pragma: no cov
             if r != 0:
                 raise RuntimeError("IP detection command failed.")
     else:
-        if pipeline_manifest.ip_registrations and registrations:
+        if pipeline_manifest.ip_registrations:
             # At the moment we did not define an IP detection only dataset
             # We assume that interest point detections are already present in the input dataset
             # in the folder of the xml dataset file (in the manifest folder)
@@ -670,8 +670,10 @@ def imagej_wrapper_main(detection: bool, registrations: bool):  # pragma: no cov
             shutil.copytree(ip_src, "../results/interestpoints.n5", dirs_exist_ok=True)
 
     # Separate function to keep overall complexity low
-    imagej_do_registrations(pipeline_manifest, args, logger, process_meta)
-
+    if registrations:
+        imagej_do_registrations(pipeline_manifest, args, logger, process_meta)
+    else:
+        logger.info(f'registrations={registrations}, so registration will be skipped')
     logger.info("Setting processing metadata to done")
     set_metadata_done(process_meta)
     write_process_metadata(process_meta, prefix="ipreg")
