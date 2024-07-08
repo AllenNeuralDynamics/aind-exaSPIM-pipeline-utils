@@ -583,7 +583,7 @@ import click
 @click.command
 @click.option('--detection', type=click.BOOL, default=True)
 @click.option('--registrations', type=click.BOOL, default=True)
-def imagej_wrapper_main(do_detection: bool, do_registrations: bool):  # pragma: no cover
+def imagej_wrapper_main(detection: bool, registrations: bool):  # pragma: no cover
     """Entry point with the manifest config."""
     # logging.basicConfig(format="%(asctime)s %(name)s %(levelname)-7s %(message)s")
     # arguments passed through the cli
@@ -631,7 +631,7 @@ def imagej_wrapper_main(do_detection: bool, do_registrations: bool):  # pragma: 
     )
     write_process_metadata(process_meta, prefix="ipreg")
     ip_det_parameters = pipeline_manifest.ip_detection
-    if ip_det_parameters is not None and do_detection:
+    if ip_det_parameters is not None and detection:
         logger.info("Copying input xml %s -> %s", args["dataset_xml"], args["process_xml"])
         shutil.copy(args["dataset_xml"], args["process_xml"])
 
@@ -660,7 +660,7 @@ def imagej_wrapper_main(do_detection: bool, do_registrations: bool):  # pragma: 
             if r != 0:
                 raise RuntimeError("IP detection command failed.")
     else:
-        if pipeline_manifest.ip_registrations and do_registrations:
+        if pipeline_manifest.ip_registrations and registrations:
             # At the moment we did not define an IP detection only dataset
             # We assume that interest point detections are already present in the input dataset
             # in the folder of the xml dataset file (in the manifest folder)
