@@ -27,7 +27,7 @@ from .imagej_macros import ImagejMacros
 from .exaspim_manifest import get_capsule_manifest, write_process_metadata, ExaspimProcessingPipeline
 from .qc import bigstitcher_log_edge_analysis
 from .qc.create_ng_link import create_ng_link
-
+import click
 
 class PhaseCorrelationSchema(argschema.ArgSchema):  # pragma: no cover
 
@@ -578,7 +578,6 @@ def imagej_do_registrations(pipeline_manifest: ExaspimProcessingPipeline,
     logger.info("Creating EMR ready xml from bigstitcher.xml")
     create_emr_ready_xml(args, num_regs=reg_index)
 
-import click
 
 @click.command
 @click.option('--detection', type=click.BOOL, default=True)
@@ -632,6 +631,7 @@ def imagej_wrapper_main(detection: bool, registrations: bool):  # pragma: no cov
     write_process_metadata(process_meta, prefix="ipreg")
     ip_det_parameters = pipeline_manifest.ip_detection
     if ip_det_parameters is not None and detection:
+        logger.info('Begin interest point detection')
         logger.info("Copying input xml %s -> %s", args["dataset_xml"], args["process_xml"])
         shutil.copy(args["dataset_xml"], args["process_xml"])
 
@@ -659,6 +659,12 @@ def imagej_wrapper_main(detection: bool, registrations: bool):  # pragma: no cov
             )
             if r != 0:
                 raise RuntimeError("IP detection command failed.")
+            
+            # save neuroglancer views of interest points
+            from matchviz.cli import save_points
+            # points_uri = os.path.join(args["output_uri"], 'tile_alignment_visualization','points')
+            save_points("../results/", "../results/tile_alignment_visualization/points/")
+
     else:
         if pipeline_manifest.ip_registrations:
             # At the moment we did not define an IP detection only dataset
@@ -674,6 +680,7 @@ def imagej_wrapper_main(detection: bool, registrations: bool):  # pragma: no cov
         imagej_do_registrations(pipeline_manifest, args, logger, process_meta)
     else:
         logger.info(f'registrations={registrations}, so registration will be skipped')
+
     logger.info("Setting processing metadata to done")
     set_metadata_done(process_meta)
     write_process_metadata(process_meta, prefix="ipreg")
