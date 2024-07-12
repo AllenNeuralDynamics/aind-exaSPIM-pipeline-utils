@@ -16,9 +16,6 @@ classifiers = [
 readme = "README.md"
 dynamic = ["version"]
 
-[tool.hatch.metadata]
-allow-direct-references=true
-
 dependencies = [
     'click',
     'argschema',
@@ -30,7 +27,7 @@ dependencies = [
     'aind-data-schema==0.38.0',
     'aind-codeocean-api==0.5.0',
     'aind-ng-link>=1.0.15',
-    'matchviz@git+http://www.github.com/d-v-b/matchviz@points_vs_matches'
+    'matchviz==0.0.6'
 ]
 
 [project.optional-dependencies]
