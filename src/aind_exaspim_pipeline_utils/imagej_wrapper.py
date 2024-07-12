@@ -16,7 +16,7 @@ import argschema.fields as fld
 import marshmallow as mm
 import psutil
 import s3fs
-from aind_data_schema.processing import DataProcess, ProcessName
+from aind_data_schema.core.processing import DataProcess, ProcessName
 import xml.etree.ElementTree as ET
 
 # from aind_data_schema import DataProcess
@@ -28,6 +28,14 @@ from .exaspim_manifest import get_capsule_manifest, write_process_metadata, Exas
 from .qc import bigstitcher_log_edge_analysis
 from .qc.create_ng_link import create_ng_link
 import click
+import dotenv
+
+dotenv.load_dotenv()
+DEFAULT_MANIFEST_DIR = "../data/manifest/"
+DEFAULT_OUTPUT_DIR = "../results/"
+
+OUTPUT_DIR = os.environ.get('OUTPUT_DIR', DEFAULT_OUTPUT_DIR)
+MANIFEST_DIR = os.environ.get('MANIFEST_DIR', DEFAULT_MANIFEST_DIR)
 
 class PhaseCorrelationSchema(argschema.ArgSchema):  # pragma: no cover
 
@@ -306,9 +314,9 @@ def get_auto_parameters(args: Dict) -> Dict:  # pragma: no cover
     if mem_GB < 10:
         raise ValueError("Too little memory available")
 
-    process_xml = "../results/bigstitcher.xml"
-    macro_ip_det = "../results/macro_ip_det.ijm"
-    macro_phase_corr = "../results/macro_phase_corr.ijm"
+    process_xml = os.path.join(OUTPUT_DIR, "bigstitcher.xml")
+    macro_ip_det = os.path.join(OUTPUT_DIR, "macro_ip_det.ijm")
+    macro_phase_corr = os.path.join(OUTPUT_DIR, "macro_phase_corr.ijm")
 
     return {
         "process_xml": process_xml,
@@ -334,7 +342,8 @@ def main():  # pragma: no cover
     logger.info("Invocation: %s", sys.argv)
 
     logger.info("Writing out config.json")
-    with open("/results/config.json", "w") as f:
+    
+    with open(os.path.join(OUTPUT_DIR, "config.json"), "w") as f:
         json.dump(args, f, indent=2)
 
     logger.info("Copying input xml %s -> %s", args["dataset_xml"], args["process_xml"])
@@ -443,7 +452,7 @@ def get_imagej_wrapper_metadata(
         code_url="https://github.com/AllenNeuralDynamics/aind-exaSPIM-pipeline-utils",
         code_version=__version__,
         parameters=parameters,
-        outputs=None,
+        outputs={},
         notes="IN PROGRESS",
     )
     return dp
@@ -470,7 +479,7 @@ def upload_alignment_results(args: dict):  # pragma: no cover
     if url.scheme != "s3":
         raise NotImplementedError("Only s3 output_uri is supported, not {url.scheme}")
     fs.put(
-        "../results/", url.netloc + url.path.rstrip("/") + "/", recursive=True, maxdepth=10
+        OUTPUT_DIR, url.netloc + url.path.rstrip("/") + "/", recursive=True, maxdepth=10
     )  # Interestpoints.n5 have a bunch of subfolders
 
 
@@ -497,16 +506,16 @@ def create_emr_ready_xml(args: dict, num_regs: int = 1):  # pragma: no cover
         # Removed leading slash
         elem_zarr.text = url.path.strip("/") + "/SPIM.ome.zarr"
         # write the xml file
-        tree.write(f"../results/{emr_xml_name}", encoding="utf-8")
+        tree.write(os.path.join(OUTPUT_DIR, emr_xml_name), encoding="utf-8")
 
 
 def create_edge_connectivity_report(num_registrations: int) -> None:  # pragma: no cover
     """Create a report of edge connectivity failures."""
     # Read the log file
-    with open("../results/edge_connectivity_report.txt", "w") as f_report:
+    with open(os.path.join(OUTPUT_DIR, "edge_connectivity_report.txt"), "w") as f_report:
         for i in range(num_registrations):
             print(f"Edge dis-connectivity based on ip_registration{i:d}.log (running order):", file=f_report)
-            with open(f"../results/ip_registration{i:d}.log", "r") as f:
+            with open(os.path.join(OUTPUT_DIR, f"ip_registration{i:d}.log"), "r") as f:
                 lines = f.readlines()
             # Extract the tile pair numbers from failed RANSAC correspondence finding log messages
             blocks = bigstitcher_log_edge_analysis.get_unfitted_tile_pairs(lines, multiblock=False)
@@ -525,14 +534,14 @@ def imagej_do_registrations(pipeline_manifest: ExaspimProcessingPipeline,
     reg_index = 0
     if pipeline_manifest.ip_registrations:
         for ipreg_params in pipeline_manifest.ip_registrations:
-            macro_reg = f"../results/macro_ip_reg{reg_index:d}.ijm"
+            macro_reg = os.path.join(OUTPUT_DIR, f"macro_ip_reg{reg_index:d}.ijm")
             reg_params = ipreg_params.dict()
             reg_params.update(ipreg_params.IJwrap.dict())
             reg_params["process_xml"] = args["process_xml"]
             logger.info("Creating macro %s", macro_reg)
             with open(macro_reg, "w") as f:
                 f.write(ImagejMacros.get_macro_ip_reg(reg_params))
-            with open(f"../results/ip_registration{reg_index:d}.log", "w") as f_out:
+            with open(os.path.join(OUTPUT_DIR, f"ip_registration{reg_index:d}.log"), "w") as f_out:
                 r = wrapper_cmd_run(
                     [
                         "ImageJ",
@@ -563,7 +572,7 @@ def imagej_do_registrations(pipeline_manifest: ExaspimProcessingPipeline,
                     "{}SPIM.ome.zarr".format(args["input_uri"]),
                     args["output_uri"].rstrip("/"),
                     xml_path=xml_path,
-                    output_json=f"../results/ng/process_output_{i}.json",
+                    output_json=os.path.join(OUTPUT_DIR, f"ng/process_output_{i}.json"),
                 )
                 if thelink:
                     nglinks.append(thelink)
@@ -589,7 +598,7 @@ def imagej_wrapper_main(detection: bool, registrations: bool):  # pragma: no cov
     logging.basicConfig(format="%(asctime)s %(levelname)-7s %(message)s")
 
     # Add a file output, too for the logs
-    file_handler = logging.FileHandler("../results/imagej_wrapper.log")
+    file_handler = logging.FileHandler(os.path.join(OUTPUT_DIR, 'imagej_wrapper.log'))
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)-7s %(message)s"))
 
@@ -597,9 +606,9 @@ def imagej_wrapper_main(detection: bool, registrations: bool):  # pragma: no cov
     logger.addHandler(file_handler)
 
     pipeline_manifest = get_capsule_manifest()
-
+    
     args = {
-        "dataset_xml": "../data/manifest/dataset.xml",
+        "dataset_xml": os.path.join(MANIFEST_DIR, "dataset.xml"),
         "session_id": pipeline_manifest.pipeline_suffix,
         "log_level": logging.DEBUG,
         "name": pipeline_manifest.name,
@@ -641,7 +650,7 @@ def imagej_wrapper_main(detection: bool, registrations: bool):  # pragma: no cov
         logger.info("Creating macro %s", args["macro_ip_det"])
         with open(args["macro_ip_det"], "w") as f:
             f.write(ImagejMacros.get_macro_ip_det(det_params))
-        with open("../results/ip_detection.log", "w") as f_out:
+        with open(os.path.join(OUTPUT_DIR, "ip_detection.log"), "w") as f_out:
             r = wrapper_cmd_run(
                 [
                     "ImageJ",
@@ -663,7 +672,10 @@ def imagej_wrapper_main(detection: bool, registrations: bool):  # pragma: no cov
             # save neuroglancer views of interest points
             from matchviz.cli import save_points
             # points_uri = os.path.join(args["output_uri"], 'tile_alignment_visualization','points')
-            save_points("../results/", "../results/tile_alignment_visualization/points/")
+            save_points(
+                OUTPUT_DIR, 
+                os.path.join(OUTPUT_DIR, "tile_alignment_visualization/points/"),
+                 None, None)
 
     else:
         if pipeline_manifest.ip_registrations:
@@ -673,7 +685,7 @@ def imagej_wrapper_main(detection: bool, registrations: bool):  # pragma: no cov
             logger.info("Assume already detected interestpoints.")
             ip_src = os.path.join(os.path.dirname(args["dataset_xml"]), "interestpoints.n5")
             logger.info("Copying %s -> ../results/", ip_src)
-            shutil.copytree(ip_src, "../results/interestpoints.n5", dirs_exist_ok=True)
+            shutil.copytree(ip_src, os.path.join(OUTPUT_DIR, "interestpoints.n5"), dirs_exist_ok=True)
 
     # Separate function to keep overall complexity low
     if registrations:

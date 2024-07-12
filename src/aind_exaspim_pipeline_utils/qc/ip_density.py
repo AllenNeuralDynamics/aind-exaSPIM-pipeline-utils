@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import sys
 from typing import Optional
-
+import os
 import numpy as np
 
 import xmltodict
@@ -13,6 +13,8 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+
+from aind_exaspim_pipeline_utils.exaspim_manifest import OUTPUT_DIR
 from .tile_transformations import (
     get_tile_overlapping_IPs,
     get_tile_pair_overlap,
@@ -237,7 +239,7 @@ def run_tr_density_plot():  # pragma: no cover
     formatter = logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
     handler.setFormatter(formatter)
     rlogger.addHandler(handler)
-    run_density_plot("../results/bigstitcher.xml", prefix="../results/tr_")
+    run_density_plot(os.path.join(OUTPUT_DIR, "bigstitcher.xml"), prefix=os.path.join(OUTPUT_DIR, "tr_"))
 
 
 def run_aff_density_plot():  # pragma: no cover
@@ -250,4 +252,4 @@ def run_aff_density_plot():  # pragma: no cover
     formatter = logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
     handler.setFormatter(formatter)
     rlogger.addHandler(handler)
-    run_density_plot("../results/bigstitcher.xml", prefix="../results/aff_")
+    run_density_plot(os.path.join(OUTPUT_DIR, "bigstitcher.xml"), prefix=os.path.join(OUTPUT_DIR, "aff_"))

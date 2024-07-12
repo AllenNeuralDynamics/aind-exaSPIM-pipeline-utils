@@ -1,14 +1,17 @@
 """Tile transformations and overlap functions for QC plotting."""
 from __future__ import annotations
-
+import os
 import logging
 import json
+import os
 import numpy as np
 import numpy.lib.recfunctions
 import scipy
 import zarr
 from collections import OrderedDict
 import pandas as pd
+
+from aind_exaspim_pipeline_utils.imagej_wrapper import OUTPUT_DIR
 
 from .affine_transformation import AffineTransformation  # pragma: no cover
 from .bbox import Bbox  # pragma: no cover
@@ -209,7 +212,7 @@ def get_tile_pair_overlap(
 
 
 def read_tiles_interestpoints(
-    ip_label="beads", path: str = "../results/interestpoints.n5"
+    ip_label="beads", path: str = os.path.join(OUTPUT_DIR, "interestpoints.n5")
 ) -> dict[int, np.ndarray]:  # pragma: no cover
     """
 
@@ -245,7 +248,7 @@ def read_tiles_interestpoints(
 
 
 def read_ip_correspondences(
-    ip_label: str = "beads", path: str = "../results/interestpoints.n5"
+    ip_label: str = "beads", path: str = os.path.join(OUTPUT_DIR, "interestpoints.n5")
 ) -> tuple[dict[int, np.ndarray], dict[int, dict[str, int]]]:  # pragma: no cover
     """Read in the interest point correspondences from the n5 binary files.
 

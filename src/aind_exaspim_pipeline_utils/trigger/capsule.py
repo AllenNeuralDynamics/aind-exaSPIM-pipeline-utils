@@ -18,6 +18,7 @@ import botocore.exceptions
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.computations_requests import ComputationDataAsset
 
+from aind_exaspim_pipeline_utils.imagej_wrapper import OUTPUT_DIR
 from aind_trigger_codeocean.pipelines import CapsuleJob, RegisterAindData
 
 from ..exaspim_manifest import (
@@ -129,14 +130,14 @@ def get_dataset_metadata(args) -> dict:  # pragma: no cover
     for f in files:
         object_name = "/".join((args.input_dataset_prefix, f))
         # Try the input dataset
-        if not get_s3_file(args.input_dataset_bucket_name, object_name, f"../results/{f}"):
+        if not get_s3_file(args.input_dataset_bucket_name, object_name, os.path.join(OUTPUT_DIR, f)):
             logger.warning(f"Metadata file {f} not found in {args.input_dataset_prefix}")
             object_name = "/".join((args.raw_dataset_prefix, f))
-            if not get_s3_file(args.raw_dataset_bucket_name, object_name, f"../results/{f}"):
+            if not get_s3_file(args.raw_dataset_bucket_name, object_name, os.path.join(OUTPUT_DIR, f)):
                 logger.warning(f"Metadata file not found {f} in {args.raw_dataset_prefix}. Skipping.")
                 continue
 
-        with open(f"../results/{f}", "r") as jfile:
+        with open(os.path.join(OUTPUT_DIR, f), "r") as jfile:
             data = json.load(jfile)
             metadata[os.path.splitext(f)[0]] = data
 
@@ -324,12 +325,12 @@ def run_xml_capsule(args, co_client, input_data_asset_id, manifest_data_asset_id
     if result_response.status_code != 200 or "url" not in result:
         raise RuntimeError("Cannot get xml capsule result")
     logger.info(f"Result query response: {result}")
-    urllib.request.urlretrieve(result["url"], "../results/dataset.xml")
+    urllib.request.urlretrieve(result["url"], os.path.join(OUTPUT_DIR, "dataset.xml"))
     # Upload
     s3 = boto3.client("s3")  # Authentication should be available in the environment
     object_name = "/".join((args.manifest_path, "dataset.xml"))
     logger.info(f"Uploading to bucket {args.manifest_bucket_name} : {object_name}")
-    s3.upload_file("../results/dataset.xml", args.manifest_bucket_name, object_name)
+    s3.upload_file(os.path.join(OUTPUT_DIR, "dataset.xml"), args.manifest_bucket_name, object_name)
 
 
 def start_ij_capsule(args, co_client, input_data_asset_id, manifest_data_asset_id):  # pragma: no cover
@@ -558,12 +559,12 @@ def create_and_upload_emr_config(args, manifest: ExaspimProcessingPipeline):  # 
         '"--storage", "N5", "--UINT16", "--minIntensity=0", '
         '"--maxIntensity=65535", "--preserveAnisotropy" ]\n'
     )
-    with open("../results/emr_fusion_config_ijwrap.txt", "w") as f:
+    with open(os.path.join(OUTPUT_DIR, "emr_fusion_config_ijwrap.txt"), "w") as f:
         f.write(config)
     logger.info("Uploading emr_fusion_config.txt to bucket {}".format(args.manifest_bucket_name))
     s3 = boto3.client("s3")  # Authentication should be available in the environment
     object_name = "/".join((args.manifest_path, "emr_fusion_config_ijwrap.txt"))
-    s3.upload_file("../results/emr_fusion_config_ijwrap.txt", args.manifest_bucket_name, object_name)
+    s3.upload_file(os.path.join(OUTPUT_DIR, "emr_fusion_config_ijwrap.txt"), args.manifest_bucket_name, object_name)
 
     # For the directS3 version which should be now the default
     config = (
@@ -576,21 +577,21 @@ def create_and_upload_emr_config(args, manifest: ExaspimProcessingPipeline):  # 
         '"--storage", "N5", "--UINT16", "--minIntensity=0", '
         '"--maxIntensity=65535", "--preserveAnisotropy" ]\n'
     )
-    with open("../results/emr_fusion_config.txt", "w") as f:
+    with open(os.path.join(OUTPUT_DIR, "emr_fusion_config.txt"), "w") as f:
         f.write(config)
     logger.info("Uploading emr_fusion_config.txt to bucket {}".format(args.manifest_bucket_name))
     object_name = "/".join((args.manifest_path, "emr_fusion_config.txt"))
-    s3.upload_file("../results/emr_fusion_config.txt", args.manifest_bucket_name, object_name)
+    s3.upload_file(os.path.join(OUTPUT_DIR, "emr_fusion_config.txt"), args.manifest_bucket_name, object_name)
 
 
 def upload_manifest(args, manifest: ExaspimProcessingPipeline):  # pragma: no cover
     """Write out the given manifest as a json file and upload to S3"""
     s3 = boto3.client("s3")  # Authentication should be available in the environment
     object_name = "/".join((args.manifest_path, "exaspim_manifest.json"))
-    with open("../results/exaspim_manifest.json", "w") as f:
+    with open(os.path.join(OUTPUT_DIR, "exaspim_manifest.json"), "w") as f:
         f.write(manifest.json(indent=4))
     logger.info(f"Uploading manifest to bucket {args.manifest_bucket_name} : {object_name}")
-    s3.upload_file("../results/exaspim_manifest.json", args.manifest_bucket_name, object_name)
+    s3.upload_file(os.path.join(OUTPUT_DIR, "exaspim_manifest.json"), args.manifest_bucket_name, object_name)
 
 
 def fmt_uri(uri: str, trailing_slash=True) -> str:  # pragma: no cover

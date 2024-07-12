@@ -3,7 +3,7 @@
 import logging
 import os
 
-from .exaspim_manifest import get_capsule_manifest
+from .exaspim_manifest import DEFAULT_OUTPUT_DIR, get_capsule_manifest
 from .imagej_wrapper import (
     create_edge_connectivity_report,
     upload_alignment_results,
@@ -11,7 +11,9 @@ from .imagej_wrapper import (
     get_auto_parameters,
 )
 from .qc.create_ng_link import create_ng_link
-
+import dotenv
+dotenv.load_dotenv()
+OUTPUT_DIR = os.environ.get('OUTPUT_DIR', DEFAULT_OUTPUT_DIR)
 
 def java_detreg_postprocess_main():  # pragma: no cover
     """Entry point for java capsule postprocessing."""
@@ -65,7 +67,7 @@ def java_detreg_postprocess_main():  # pragma: no cover
                 "{}SPIM.ome.zarr".format(args["input_uri"]),
                 args["output_uri"].rstrip("/"),
                 xml_path=xml_path,
-                output_json=f"../results/ng/process_output_{i}.json",
+                output_json=os.path.join(OUTPUT_DIR, f"ng/process_output_{i}.json"),
             )
             if thelink:
                 nglinks.append(thelink)

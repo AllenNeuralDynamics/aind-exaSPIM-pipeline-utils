@@ -12,6 +12,8 @@ from ng_link.parsers import XmlParser
 import numpy as np
 import os
 
+from aind_exaspim_pipeline_utils.exaspim_manifest import OUTPUT_DIR
+
 
 def read_json(json_path: str) -> dict:  # pragma: no cover
     """Read a json file and return a dict."""
@@ -82,8 +84,8 @@ def get_tile_positions_s3(dataset_uri: str):  # pragma: no cover
 def create_ng_link(
     dataset_uri: str,
     alignment_output_uri: str,
-    xml_path: str = "../results/bigstitcher.xml",
-    output_json: str = "../results/ng/process_output.json",
+    xml_path: str = os.path.join(OUTPUT_DIR, "bigstitcher.xml"),
+    output_json: str = os.path.join(OUTPUT_DIR, "ng/process_output.json"),
 ) -> str:  # pragma: no cover
     """ "Create a Neuroglancer json file and link file for the given alignment solution.
 
@@ -198,6 +200,6 @@ def create_ng_link(
     neuroglancer_link.save_state_as_json()
     print(neuroglancer_link.get_url_link())
     thelink = f"https://neuroglancer-demo.appspot.com/#!{alignment_output_uri}/ng/{json_name}"
-    with open("../results/ng/ng_link.txt", "a") as f:
+    with open(os.path.join(OUTPUT_DIR, "ng/ng_link.txt"), "a") as f:
         print(thelink, file=f)
     return thelink

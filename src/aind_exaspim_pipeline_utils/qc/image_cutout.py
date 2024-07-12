@@ -2,11 +2,13 @@
 import logging
 import sys
 from typing import Optional, Iterable
-
+import os
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import xmltodict
+
+from aind_exaspim_pipeline_utils.exaspim_manifest import OUTPUT_DIR
 
 from .bbox import Bbox
 from .tile_transformations import (
@@ -574,7 +576,7 @@ def run_aff_cutout_plot():  # pragma: no cover
     formatter = logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
     handler.setFormatter(formatter)
     rlogger.addHandler(handler)
-    run_pair_overplots("../results/bigstitcher.xml", prefix="../results/aff_")
+    run_pair_overplots(os.path.join(OUTPUT_DIR, "bigstitcher.xml"), prefix=os.path.join(OUTPUT_DIR, "aff_"))
 
 
 def run_aff_combined_plot():  # pragma: no cover
@@ -587,7 +589,7 @@ def run_aff_combined_plot():  # pragma: no cover
     formatter = logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
     handler.setFormatter(formatter)
     rlogger.addHandler(handler)
-    run_combined_plots("../results/bigstitcher.xml", prefix="../results/aff_")
+    run_combined_plots(os.path.join(OUTPUT_DIR,"bigstitcher.xml"), prefix=os.path.join(OUTPUT_DIR,"aff_"))
 
 
 def run_aff_yz_xz_combined_plot():  # pragma: no cover
@@ -601,5 +603,5 @@ def run_aff_yz_xz_combined_plot():  # pragma: no cover
     handler.setFormatter(formatter)
     rlogger.addHandler(handler)
     run_combined_plots(
-        "../results/bigstitcher.xml", prefix="../results/aff_", vert_proj_axis=0, hor_proj_axis=1
+        os.path.join(OUTPUT_DIR, "bigstitcher.xml"), prefix=os.path.join(OUTPUT_DIR,"aff_"), vert_proj_axis=0, hor_proj_axis=1
     )
