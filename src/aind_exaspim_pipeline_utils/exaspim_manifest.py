@@ -6,13 +6,17 @@ import os
 from datetime import datetime
 from typing import Optional, Tuple, List, Union
 
-from aind_data_schema import DataProcess
+from aind_data_schema.core.processing import DataProcess
 from aind_data_schema.base import AindModel
-from pydantic import Field, validator
+from pydantic.v1 import Field, validator
 import argparse
 
 from .imagej_macros import ImagejMacros
-
+import dotenv
+dotenv.load_dotenv()
+DEFAULT_OUTPUT_DIR = "../results/"
+OUTPUT_DIR = os.environ.get('OUTPUT_DIR', DEFAULT_OUTPUT_DIR)
+DEFAULT_MANIFEST_NAME = "../data/manifest/exaspim_manifest.json"
 
 # Based on aind-data-transfer/scripts/processing_manifest.py
 
@@ -495,7 +499,7 @@ def get_capsule_manifest(
     if args is not None:
         manifest_name = args.manifest_name
     else:
-        manifest_name = "../data/manifest/exaspim_manifest.json"
+        manifest_name = os.environ.get('MANIFEST_NAME', DEFAULT_MANIFEST_NAME)
     with open(manifest_name, "r") as f:
         json_data = json.load(f)
     return ExaspimProcessingPipeline(**json_data)
@@ -529,21 +533,21 @@ def get_capsule_metadata() -> dict:  # pragma: no cover
 
 def write_result_dataset_metadata(dataset_metadata: dict) -> None:  # pragma: no cover
     """Write the updated metadata file to the Code Ocean results folder."""
-    os.makedirs("../results/meta", exist_ok=True)
-    with open("../results/meta/metadata.json", "w") as f:
+    os.makedirs(os.path.join(OUTPUT_DIR, "meta"), exist_ok=True)
+    with open(os.path.join(OUTPUT_DIR, "meta/metadata.json"), "w") as f:
         json.dump(dataset_metadata, f, indent=3)
 
 
 def write_process_metadata(capsule_metadata: DataProcess, prefix=None) -> None:  # pragma: no cover
     """Write the process.json file about this processing step to the Code Ocean results folder."""
-    # os.makedirs("../results/meta", exist_ok=True)
+
     if prefix is None:
         prefix = ""
     else:
         prefix = prefix + "_"
-    # with open(f"../results/meta/exaspim_{prefix}process.json", "w") as f:
-    with open("../results/process_output.json", "w") as f:
-        f.write(capsule_metadata.json(indent=3))
+    
+    with open(os.path.join(OUTPUT_DIR, "process_output.json"), "w") as f:
+        f.write(capsule_metadata.model_dump_json(indent=3))
 
 
 if __name__ == "__main__":  # pragma: no cover

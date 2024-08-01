@@ -17,15 +17,19 @@ readme = "README.md"
 dynamic = ["version"]
 
 dependencies = [
+    'click',
     'argschema',
     's3fs',
     'pydantic',
     'psutil',
     'matplotlib',
     'scipy',
-    'aind-data-schema',
-    'aind-codeocean-api==0.3.0',
+    'aind-data-schema==0.38.0',
+    'aind-codeocean-api==0.5.0',
     'aind-ng-link>=1.0.15',
+    'matchviz==0.0.6',
+    'python-dotenv',
+    'numpy<2'
 ]
 
 [project.optional-dependencies]
@@ -37,7 +41,7 @@ dev = [
     'interrogate',
     'isort',
     'Sphinx',
-    'furo'
+    'furo',
 ]
 
 n5tozarr = [

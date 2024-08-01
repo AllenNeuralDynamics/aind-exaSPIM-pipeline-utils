@@ -11,6 +11,8 @@ from ng_link.parsers import XmlParser
 import s3fs
 import zarr
 
+from aind_exaspim_pipeline_utils.exaspim_manifest import OUTPUT_DIR
+
 
 def read_json(json_path: str) -> dict:  # pragma: no cover
     """Read a json file and return a dict."""
@@ -47,7 +49,7 @@ def read_in_n5_ips(tile_setupId, transform_3x4=None):  # pragma: no cover
     """Read in intereset point coordinates from the n5 binary files.
     Interest points are not sorted.
     """
-    n5s = zarr.n5.N5FSStore("../results/interestpoints.n5/")
+    n5s = zarr.n5.N5FSStore(os.path.join(OUTPUT_DIR, "interestpoints.n5/"))
     zg = zarr.open(store=n5s, mode="r")
 
     id = zg[f"tpId_0_viewSetupId_{tile_setupId}/beads/interestpoints/id"]
@@ -115,8 +117,8 @@ def get_tile_positions_s3(dataset_uri: str):  # pragma: no cover
 def create_ng_link_with_annotation(
     dataset_uri: str,
     alignment_output_uri: str,
-    xml_path: str = "../results/bigstitcher.xml",
-    output_json: str = "../results/ng/process_output.json",
+    xml_path: str = os.path.join(OUTPUT_DIR, "bigstitcher.xml"),
+    output_json: str = os.path.join(OUTPUT_DIR, "ng/process_output.json"),
 ) -> str:  # pragma: no cover
     """ "Create a Neuroglancer json file and link file for the given alignment solution.
 
@@ -265,6 +267,6 @@ def create_ng_link_with_annotation(
     # thelink = f"https://neuroglancer-demo.appspot.com/#!{alignment_output_uri}/ng/{json_name}"
     # Local installation
     thelink = f"https://aind-neuroglancer-sauujisjxq-uw.a.run.app/#!{alignment_output_uri}/ng/{json_name}"
-    with open("../results/ng/ng_link.txt", "a") as f:
+    with open(os.path.join(OUTPUT_DIR, "ng/ng_link.txt"), "a") as f:
         print(thelink, file=f)
     return thelink
