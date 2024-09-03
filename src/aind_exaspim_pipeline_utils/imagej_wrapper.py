@@ -440,7 +440,7 @@ def get_imagej_wrapper_metadata(
         code_url="https://github.com/AllenNeuralDynamics/aind-exaSPIM-pipeline-utils",
         code_version=__version__,
         parameters=parameters,
-        outputs=None,
+        outputs={},
         notes="IN PROGRESS",
     )
     return dp
