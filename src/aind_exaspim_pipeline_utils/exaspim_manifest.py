@@ -478,7 +478,7 @@ def create_example_manifest(printit=True) -> ExaspimProcessingPipeline | None:  
     )
 
     if printit:
-        print(processing_manifest_example.json(indent=3))
+        print(processing_manifest_example.model_dump_json(indent=3))
         return  # If printed, we assume call from the cli
     return processing_manifest_example
 
@@ -543,7 +543,7 @@ def write_process_metadata(capsule_metadata: DataProcess, prefix=None) -> None: 
         prefix = prefix + "_"
     # with open(f"../results/meta/exaspim_{prefix}process.json", "w") as f:
     with open("../results/process_output.json", "w") as f:
-        f.write(capsule_metadata.json(indent=3))
+        f.write(capsule_metadata.model_dump_json(indent=3))
 
 
 if __name__ == "__main__":  # pragma: no cover
