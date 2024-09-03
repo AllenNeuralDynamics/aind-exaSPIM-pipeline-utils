@@ -4,8 +4,8 @@ import logging
 import sys
 
 import xarray_multiscale
-from aind_data_schema import DataProcess
-from aind_data_schema.processing import ProcessName
+from aind_data_schema.core.processing import DataProcess
+from aind_data_schema.core.processing import ProcessName
 from aind_data_transfer.transformations.ome_zarr import _get_first_mipmap_level
 from aind_data_transfer.util.io_utils import BlockedArrayWriter
 from numcodecs.abc import Codec
