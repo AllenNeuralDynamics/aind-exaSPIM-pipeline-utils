@@ -394,7 +394,7 @@ def get_zarr_multiscale_metadata(config: dict):  # pragma: no cover
         code_url="https://github.com/AllenNeuralDynamics/aind-exaSPIM-pipeline-utils",
         code_version=aind_exaspim_pipeline_utils.__version__,
         parameters=config,
-        outputs=None,
+        outputs={},
         notes="IN PROGRESS",
     )
     return dp
@@ -413,7 +413,7 @@ def get_n5tozarr_metadata(config: dict):  # pragma: no cover
         code_url="https://github.com/AllenNeuralDynamics/aind-exaSPIM-pipeline-utils",
         code_version=aind_exaspim_pipeline_utils.__version__,
         parameters=config,
-        outputs=None,
+        outputs={},
         notes="IN PROGRESS",
     )
     return dp
