@@ -16,11 +16,8 @@ import argschema.fields as fld
 import marshmallow as mm
 import psutil
 import s3fs
-from aind_data_schema.processing import DataProcess, ProcessName
+from aind_data_schema.core.processing import DataProcess, ProcessName
 import xml.etree.ElementTree as ET
-
-# from aind_data_schema import DataProcess
-# from aind_data_schema.processing import ProcessName
 
 from . import __version__
 from .imagej_macros import ImagejMacros
@@ -443,7 +440,7 @@ def get_imagej_wrapper_metadata(
         code_url="https://github.com/AllenNeuralDynamics/aind-exaSPIM-pipeline-utils",
         code_version=__version__,
         parameters=parameters,
-        outputs=None,
+        outputs={},
         notes="IN PROGRESS",
     )
     return dp

@@ -4,9 +4,9 @@ from __future__ import annotations
 import json
 import os
 from datetime import datetime
-from typing import Optional, Tuple, List, Union
+from typing import Optional, Tuple, List, Union, Literal
 
-from aind_data_schema import DataProcess
+from aind_data_schema.core.processing import DataProcess
 from aind_data_schema.base import AindModel
 from pydantic import Field, validator
 import argparse
@@ -409,8 +409,8 @@ class ExaspimProcessingPipeline(AindModel):  # pragma: no cover
 
     If a field is None, it is considered to be a disabled step."""
 
-    schema_version: str = Field("0.11.0", title="Schema Version", const=True)
-    license: str = Field("CC-BY-4.0", title="License", const=True)
+    schema_version: Literal["0.11.0"]
+    license: Literal["CC-BY-4.0"]
 
     creation_time: datetime = Field(
         ...,
@@ -478,7 +478,7 @@ def create_example_manifest(printit=True) -> ExaspimProcessingPipeline | None:  
     )
 
     if printit:
-        print(processing_manifest_example.json(indent=3))
+        print(processing_manifest_example.model_dump_json(indent=3))
         return  # If printed, we assume call from the cli
     return processing_manifest_example
 
@@ -543,7 +543,7 @@ def write_process_metadata(capsule_metadata: DataProcess, prefix=None) -> None: 
         prefix = prefix + "_"
     # with open(f"../results/meta/exaspim_{prefix}process.json", "w") as f:
     with open("../results/process_output.json", "w") as f:
-        f.write(capsule_metadata.json(indent=3))
+        f.write(capsule_metadata.model_dump_json(indent=3))
 
 
 if __name__ == "__main__":  # pragma: no cover

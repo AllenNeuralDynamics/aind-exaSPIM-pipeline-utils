@@ -4,8 +4,8 @@ import logging
 import sys
 
 import xarray_multiscale
-from aind_data_schema import DataProcess
-from aind_data_schema.processing import ProcessName
+from aind_data_schema.core.processing import DataProcess
+from aind_data_schema.core.processing import ProcessName
 from aind_data_transfer.transformations.ome_zarr import _get_first_mipmap_level
 from aind_data_transfer.util.io_utils import BlockedArrayWriter
 from numcodecs.abc import Codec
@@ -394,7 +394,7 @@ def get_zarr_multiscale_metadata(config: dict):  # pragma: no cover
         code_url="https://github.com/AllenNeuralDynamics/aind-exaSPIM-pipeline-utils",
         code_version=aind_exaspim_pipeline_utils.__version__,
         parameters=config,
-        outputs=None,
+        outputs={},
         notes="IN PROGRESS",
     )
     return dp
@@ -413,7 +413,7 @@ def get_n5tozarr_metadata(config: dict):  # pragma: no cover
         code_url="https://github.com/AllenNeuralDynamics/aind-exaSPIM-pipeline-utils",
         code_version=aind_exaspim_pipeline_utils.__version__,
         parameters=config,
-        outputs=None,
+        outputs={},
         notes="IN PROGRESS",
     )
     return dp
