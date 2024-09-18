@@ -323,8 +323,8 @@ def main():  # pragma: no cover
 
     logger = logging.getLogger()
     parser = argschema.ArgSchemaParser(schema_type=ImageJWrapperSchema)
-
     args = dict(parser.args)
+
     logger.setLevel(args["log_level"])
     args.update(get_auto_parameters(args))
     logger.info("Invocation: %s", sys.argv)
@@ -359,8 +359,8 @@ def main():  # pragma: no cover
             ],
             logger,
         )
-    if r != 0:
-        raise RuntimeError("Phase Correlation command failed.")
+        if r != 0:
+            raise RuntimeError("Phase Correlation command failed.")
 
     if args["do_detection"]:
         det_params = dict(args["ip_detection_params"])
