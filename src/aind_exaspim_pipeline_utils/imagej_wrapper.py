@@ -403,8 +403,12 @@ def main():  # pragma: no cover
             reg_params["process_xml"] = args["process_xml"]
             reg_params["parallel"] = args["parallel"]
             logger.info("Creating macro %s", macro_reg)
-            with open(macro_reg, "w") as f:
-                f.write(ImagejMacros.get_macro_ip_reg(reg_params))
+            if reg_index == 0:
+                with open(macro_reg, "w") as f:
+                    f.write(ImagejMacros.get_macro_ip_reg_rigid(reg_params))
+            if reg_index == 1:
+                with open(macro_reg, "w") as f:
+                    f.write(ImagejMacros.get_macro_ip_reg_affine(reg_params))
             r = wrapper_cmd_run(
                 [
                     "ImageJ",

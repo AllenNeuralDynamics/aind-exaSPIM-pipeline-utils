@@ -82,7 +82,7 @@ run("Detect Interest Points for Registration",
     #     "allowed_error_for_ransac=5 ransac_iterations=Normal{fixed_viewsetupids}{select_reference_views}");
     #     """
     
-    MACRO_IP_REG = """
+    MACRO_IP_REG_RIGID = """
         run("Memory & Threads...", "parallel={parallel:d}");
         run("Register Dataset based on Interest Points",
         "select={process_xml} process_angle=[All angles] process_channel=[All channels] " +
@@ -100,8 +100,46 @@ run("Detect Interest Points for Registration",
         "global_optimization_strategy="+
         "[One-Round: DO NOT handle unconnected tiles, DO NOT remove wrong links ('classic option')]");
         """
-    # TODO: not work "[One-Round: DO NOT handle unconnected tiles, DO NOT remove wrong links ('classic option')]");
-    TEMPLATE_REGULARIZE = """ regularize_model model_to_regularize_with={regularize_with} lambda=0.10"""
+    
+    MACRO_IP_REG_AFFINE = """
+        run("Memory & Threads...", "parallel={parallel:d}");
+        run("Register Dataset based on Interest Points",
+        "select={process_xml} process_angle=[All angles] process_channel=[All channels] " +
+        "process_illumination=[All illuminations] process_tile=[All tiles] " +
+        "process_timepoint=[All Timepoints] " +
+        "registration_algorithm=[Precise descriptor-based (translation invariant)] " +
+        "registration_in_between_views=[{compare_views}] " +
+        "interest_point_inclusion=[{interest_point_inclusion}] " +
+        "interest_points=beads fix_views=[{fix_views}] " +
+        "map_back_views=[{map_back_views}] " +
+        "transformation={transformation}{regularization} " +
+        "limit_search_radius search_radius=300 " +
+        "number_of_neighbors=3 redundancy=0 significance=3 " +
+        "allowed_error_for_ransac=100 inlier_factor=6 ransac_iterations=Thorough " +
+        "global_optimization_strategy="+
+        "[One-Round: DO NOT handle unconnected tiles, DO NOT remove wrong links ('classic option')]");
+        """
+        
+    # MACRO_IP_REG_AFFINE = """
+    #     run("Memory & Threads...", "parallel={parallel:d}");
+    #     run("Register Dataset based on Interest Points",
+    #     "select={process_xml} process_angle=[All angles] process_channel=[All channels] " +
+    #     "process_illumination=[All illuminations] process_tile=[All tiles] " +
+    #     "process_timepoint=[All Timepoints] " +
+    #     "registration_algorithm=[Precise descriptor-based (translation invariant)] " +
+    #     "registration_in_between_views=[{compare_views}] " +
+    #     "interest_point_inclusion=[{interest_point_inclusion}] " +
+    #     "interest_points=beads fix_views=[{fix_views}] " +
+    #     "map_back_views=[{map_back_views}] " +
+    #     "transformation={transformation}{regularization} " +
+    #     "limit_search_radius search_radius=100 " +
+    #     "number_of_neighbors=3 redundancy=0 significance=3 " +
+    #     "allowed_error_for_ransac=30 inlier_factor=6 ransac_iterations=Thorough " +
+    #     "global_optimization_strategy="+
+    #     "[One-Round: DO NOT handle unconnected tiles, DO NOT remove wrong links ('classic option')]");
+    #     """
+    
+    TEMPLATE_REGULARIZE = """ regularize_model model_to_regularize_with={regularize_with} lambda=0.05"""
 
     MAP_COMPARE_VIEWS = {
         "all_views": "Compare all views against each other",
@@ -172,8 +210,8 @@ run("Detect Interest Points for Registration",
         return ImagejMacros.MACRO_IP_DET.format(**fparams)
 
     @staticmethod
-    def get_macro_ip_reg(P: Dict[str, Any]) -> str:
-        """Get a parameter formatted IP registration macro.
+    def get_macro_ip_reg_rigid(P: Dict[str, Any]) -> str:
+        """Get a parameter formatted IP rigid registration macro.
 
         Parameters
         ----------
@@ -203,8 +241,42 @@ run("Detect Interest Points for Registration",
             fparams[
                 "select_reference_views"
             ] = " select_reference_views=[ViewSetupId:{:d} Timepoint:0]".format(P["map_back_reference_view"])
-        return ImagejMacros.MACRO_IP_REG.format(**fparams)
+        return ImagejMacros.MACRO_IP_REG_RIGID.format(**fparams)
 
+    @staticmethod
+    def get_macro_ip_reg_affine(P: Dict[str, Any]) -> str:
+        """Get a parameter formatted IP affine registration macro.
+
+        Parameters
+        ----------
+        P : `dict`
+          Parameter dictionary for macro template formatting.
+        """
+        fparams = dict(P)
+        fparams["compare_views"] = ImagejMacros.MAP_COMPARE_VIEWS[P["compare_views_choice"]]
+        fparams["interest_point_inclusion"] = ImagejMacros.MAP_INTEREST_POINT_INCLUSION[
+            P["interest_point_inclusion_choice"]
+        ]
+        fparams["fix_views"] = ImagejMacros.MAP_FIX_VIEWS[P["fix_views_choice"]]
+        fparams["transformation"] = ImagejMacros.MAP_TRANSFORMATION[P["transformation_choice"]]
+        fparams["map_back_views"] = ImagejMacros.MAP_MAP_BACK_VIEWS[P["map_back_views_choice"]]
+        fparams["regularization"] = ""
+        fparams["fixed_viewsetupids"] = ""
+        if P["do_regularize"]:
+            fparams["regularization"] = ImagejMacros.TEMPLATE_REGULARIZE.format(
+                regularize_with=ImagejMacros.MAP_REGULARIZATION[P["regularize_with_choice"]]
+            )
+        if P["fix_views_choice"] == "select_fixed":
+            fparams["fixed_viewsetupids"] = "".join(
+                f" viewsetupid_{tile_id:d}_timepoint_0" for tile_id in P["fixed_tile_ids"]
+            )
+        fparams["select_reference_views"] = ""
+        if P["map_back_views_choice"] in ("selected_translation", "selected_rigid"):
+            fparams[
+                "select_reference_views"
+            ] = " select_reference_views=[ViewSetupId:{:d} Timepoint:0]".format(P["map_back_reference_view"])
+        return ImagejMacros.MACRO_IP_REG_AFFINE.format(**fparams)
+    
     @staticmethod
     def get_macro_phase_correlation(P: Dict[str, Any]) -> str:
         """ Get a parameter formatted phase correlation macro.
