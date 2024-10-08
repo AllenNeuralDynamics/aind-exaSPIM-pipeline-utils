@@ -65,7 +65,7 @@ run("Detect Interest Points for Registration",
         "around_median": "Around median (of those above threshold)",
         "weakest": "Weakest (above threshold)",
     }
-
+    # ---- orginal MACRO_IP_REG -------#
     # MACRO_IP_REG = """
     #     run("Memory & Threads...", "parallel={parallel:d}");
     #     run("Register Dataset based on Interest Points",
@@ -82,6 +82,27 @@ run("Detect Interest Points for Registration",
     #     "allowed_error_for_ransac=5 ransac_iterations=Normal{fixed_viewsetupids}{select_reference_views}");
     #     """
     
+    # ------- MACRO_IP_REG for rigid -------#
+    # MACRO_IP_REG = """
+    #     run("Memory & Threads...", "parallel={parallel:d}");
+    #     run("Register Dataset based on Interest Points",
+    #     "select={process_xml} process_angle=[All angles] process_channel=[All channels] " +
+    #     "process_illumination=[All illuminations] process_tile=[All tiles] " +
+    #     "process_timepoint=[All Timepoints] " +
+    #     "registration_algorithm=[Precise descriptor-based (translation invariant)] " +
+    #     "registration_in_between_views=[{compare_views}] " +
+    #     "interest_point_inclusion=[{interest_point_inclusion}] " +
+    #     "interest_points=beads fix_views=[{fix_views}] " +
+    #     "map_back_views=[{map_back_views}] " +
+    #     "transformation={transformation}{regularization} " +
+    #     "limit_search_radius search_radius=300 " +
+    #     "number_of_neighbors=3 redundancy=0 significance=3 " +
+    #     "allowed_error_for_ransac=100 inlier_factor=6 ransac_iterations=Thorough " +
+    #     "global_optimization_strategy="+
+    #     "[One-Round: DO NOT handle unconnected tiles, DO NOT remove wrong links ('classic option')]");
+    #     """
+    
+    # ------- MACRO_IP_REG for affine -------#
     MACRO_IP_REG = """
         run("Memory & Threads...", "parallel={parallel:d}");
         run("Register Dataset based on Interest Points",
@@ -94,14 +115,14 @@ run("Detect Interest Points for Registration",
         "interest_points=beads fix_views=[{fix_views}] " +
         "map_back_views=[{map_back_views}] " +
         "transformation={transformation}{regularization} " +
-        "limit_search_radius search_radius=300 " +
+        "limit_search_radius search_radius=100 " +
         "number_of_neighbors=3 redundancy=0 significance=3 " +
-        "allowed_error_for_ransac=100 inlier_factor=6 ransac_iterations=Thorough " +
+        "allowed_error_for_ransac=30 inlier_factor=6 ransac_iterations=Thorough " +
         "global_optimization_strategy="+
         "[One-Round: DO NOT handle unconnected tiles, DO NOT remove wrong links ('classic option')]");
         """
-    # TODO: not work "[One-Round: DO NOT handle unconnected tiles, DO NOT remove wrong links ('classic option')]");
-    TEMPLATE_REGULARIZE = """ regularize_model model_to_regularize_with={regularize_with} lambda=0.10"""
+
+    TEMPLATE_REGULARIZE = """ regularize_model model_to_regularize_with={regularize_with} lambda=0.05"""
 
     MAP_COMPARE_VIEWS = {
         "all_views": "Compare all views against each other",
