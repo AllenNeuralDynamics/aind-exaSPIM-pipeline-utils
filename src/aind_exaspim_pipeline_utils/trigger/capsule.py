@@ -325,6 +325,7 @@ def run_xml_capsule(args, co_client, input_data_asset_id, manifest_data_asset_id
         raise RuntimeError("Cannot get xml capsule result")
     logger.info(f"Result query response: {result}")
     urllib.request.urlretrieve(result["url"], "../results/dataset.xml")
+    
     # Upload
     s3 = boto3.client("s3")  # Authentication should be available in the environment
     object_name = "/".join((args.manifest_path, "dataset.xml"))
@@ -375,16 +376,35 @@ def validate_channel_name(metadata: dict, args: argparse.Namespace) -> str:  # p
     The channel name is the nominal wavelength only, without the "ch" prefix.
     """
     ch_names = []
+    ch_scales = []
     if "acquisition" in metadata:
         acq = metadata["acquisition"]
         for t in acq["tiles"]:
             ch_names.append(t["channel"]["channel_name"])
+            scale = t["coordinate_transformations"][0]["scale"]
+            if isinstance(scale, list):
+                ch_scales.append(scale)
+            else:
+                ch_scales.append([scale])
     logger.info(f"Found channels in acquisition metadata: {set(ch_names)}")
+
     if args.channel:
         if args.channel not in ch_names:
             raise ValueError(f"Channel name {args.channel} not found in the metadata: {set(ch_names)}.")
     else:
-        args.channel = ch_names[0]
+        # args.channel = ch_names[0]
+        
+        # select the signal channel with resolution of 0.748*0.748*1.0 for stitcher
+        flag_find = False
+        predefined_scale = [0.748, 0.748, 1.0]
+        # Find the channel with the predefined scale
+        for channel, scale in zip(ch_names, ch_scales):
+            if scale == predefined_scale:
+                args.channel = channel
+                flag_find = True
+        if not flag_find:
+            raise ValueError(f"Signal channel not found in the metadata: {set(ch_names)}.")
+        
     logger.info(f"Processing selected channel: {args.channel}")
     return args.channel
 
@@ -560,6 +580,7 @@ def create_and_upload_emr_config(args, manifest: ExaspimProcessingPipeline):  # 
     )
     with open("../results/emr_fusion_config_ijwrap.txt", "w") as f:
         f.write(config)
+
     logger.info("Uploading emr_fusion_config.txt to bucket {}".format(args.manifest_bucket_name))
     s3 = boto3.client("s3")  # Authentication should be available in the environment
     object_name = "/".join((args.manifest_path, "emr_fusion_config_ijwrap.txt"))
@@ -578,6 +599,7 @@ def create_and_upload_emr_config(args, manifest: ExaspimProcessingPipeline):  # 
     )
     with open("../results/emr_fusion_config.txt", "w") as f:
         f.write(config)
+        
     logger.info("Uploading emr_fusion_config.txt to bucket {}".format(args.manifest_bucket_name))
     object_name = "/".join((args.manifest_path, "emr_fusion_config.txt"))
     s3.upload_file("../results/emr_fusion_config.txt", args.manifest_bucket_name, object_name)
@@ -585,11 +607,12 @@ def create_and_upload_emr_config(args, manifest: ExaspimProcessingPipeline):  # 
 
 def upload_manifest(args, manifest: ExaspimProcessingPipeline):  # pragma: no cover
     """Write out the given manifest as a json file and upload to S3"""
-    s3 = boto3.client("s3")  # Authentication should be available in the environment
     object_name = "/".join((args.manifest_path, "exaspim_manifest.json"))
     with open("../results/exaspim_manifest.json", "w") as f:
         f.write(manifest.json(indent=4))
+
     logger.info(f"Uploading manifest to bucket {args.manifest_bucket_name} : {object_name}")
+    s3 = boto3.client("s3")  # Authentication should be available in the environment
     s3.upload_file("../results/exaspim_manifest.json", args.manifest_bucket_name, object_name)
 
 
