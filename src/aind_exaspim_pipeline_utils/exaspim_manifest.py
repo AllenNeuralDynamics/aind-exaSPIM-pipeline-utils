@@ -91,7 +91,6 @@ class IPDetectionParameters(AindModel):  # pragma: no cover
 
     # dataset_xml: str = Field(..., title="NOT USED. BigStitcher xml dataset file in s3.")
     IJwrap: IJWrapperParameters = Field(..., title="ImageJ wrapper settings")
-
     downsample: int = Field(4, title="Downsampling factor. Use the one that is available in the dataset.")
     bead_choice: str = Field("manual", title="Beads detection mode")
     sigma: float = Field(1.8, title="Difference of Gaussians sigma (beads_mode==manual only)")
@@ -138,6 +137,7 @@ class IPRegistrationParameters(AindModel):  # pragma: no cover
 
     # dataset_xml: str = Field(..., title="BigStitcher xml dataset file.")
     IJwrap: IJWrapperParameters = Field(..., title="ImageJ wrapper settings")
+    registration_algorithm: str = Field("Precise descriptor-based (translation invariant)", title="Registration algorithm")
     transformation_choice: str = Field(..., title="Translation, rigid or full affine transformation ?")
     compare_views_choice: str = Field(..., title="Which views to compare ?")
     interest_point_inclusion_choice: str = Field(..., title="Which interest points to use ?")
@@ -151,10 +151,19 @@ class IPRegistrationParameters(AindModel):  # pragma: no cover
     map_back_views_choice: str = Field(..., title="How to map back views?")
     map_back_reference_view: int = Field(0, title="Selected reference view for map back.")
     do_regularize: bool = Field(False, title="Do regularize transformation?")
-    regularization_lambda: float = Field(0.1, title="Regularization lambda (do_regularize==True only).")
     regularize_with_choice: str = Field(
         "rigid", title="Which regularization to use (do_regularize==True only) ?"
     )
+    regularization_lambda: float = Field(0.1, title="Regularization lambda (do_regularize==True only).")
+    search_radius: int = Field(100, title="Limit search radius.")
+    number_of_neighbors: int = Field(3, title="Number of neighbors for the descriptors.")
+    redundancy: int = Field(0, title="Redundancy for descriptor matching.")
+    significance: int = Field(3, title="Significance required for a descriptor match.")
+    allowed_error_for_ransac: int = Field(30, title="Allowed error for RANSAC (px)")
+    inlier_factor: int = Field(6, title="Inlier factor (minimal amount of inliers).")
+    ransac_iterations: str = Field("Thorough", title='ransac_iterations.')
+    global_optimization_strategy: str = Field("[One-Round: DO NOT handle unconnected tiles, DO NOT remove wrong links ('classic option')]", title='global optimization strategy.')
+    
 
     @validator("transformation_choice")
     def validate_transformation_choice(cls, v: str) -> str:
@@ -222,24 +231,29 @@ class IPRegistrationParameters(AindModel):  # pragma: no cover
 
 
 class SparkInterestPointDetections(AindModel):  # pragma: no cover
-    """Interest point detection parameters"""
+    """Interest point detection parameters
+    Ref: https://github.com/JaneliaSciComp/BigStitcher-Spark/blob/616c274e962ab07e62ce402d5f5c6bd55fd6c5bb/src/main/java/net/preibisch/bigstitcher/spark/SparkInterestPointDetection.java#L104
+    """
 
     label: str = Field("beads", title="Label of the interest points")
-    sigma: float = Field(4.0, title="sigma for segmentation, e.g. 1.8")
-    threshold: float = Field(0.0015, title="threshold for segmentation, e.g. 0.008")
+    sigma: float = Field(2.0, title="sigma for segmentation, e.g. 1.8")
+    threshold: float = Field(0.005, title="threshold for segmentation, e.g. 0.008")
     overlappingOnly: bool = Field(True, title="Find overlapping interest points only")
-    storeIntensities: bool = Field(True, title="Store intensities")
-    prefetch: bool = Field(True, title="Prefetch")
-    minIntensity: int = Field(0, title="Minimal intensity value")
-    maxIntensity: int = Field(2000, title="Maximal intensity value")
-    dsxy: int = Field(4, title="Downsampling factor for x and y")
-    dsz: int = Field(4, title="Downsampling factor for z")
-    blockSizeString: str = Field("1024,1024,1024", title="Block size string")
+    storeIntensities: bool = Field(False, title="Store intensities")
+    prefetch: bool = Field(False, title="Prefetch")
+    minIntensity: int = Field(1, title="Minimal intensity value")
+    maxIntensity: int = Field(5, title="Maximal intensity value")
+    dsxy: int = Field(16, title="Downsampling factor for x and y")
+    dsz: int = Field(16, title="Downsampling factor for z")
+    blockSizeString: str = Field("512,512,128", title="Block size string")
     type: str = Field("MAX", title="the type of interestpoints to find, MIN, MAX or BOTH (default: MAX)")
     localization: str = Field(
         "QUADRATIC", title="Subpixel localization method, NONE or QUADRATIC (default: QUADRATIC)"
     )
-
+    medianFilter: int = Field(10, title="divide by the median filtered image of the given radius prior to interest point detection")
+    maxSpots: int = Field(8000, title="limit the number of spots per view (choose the brightest ones)")
+    maxSpotsPerOverlap: bool = Field(True, title="apply the maximum number of spots individually to every overlapping area")
+    
 
 class SparkGeometricDescriptorMatching(AindModel):  # pragma: no cover
     """Geometric descriptor matching parameters"""

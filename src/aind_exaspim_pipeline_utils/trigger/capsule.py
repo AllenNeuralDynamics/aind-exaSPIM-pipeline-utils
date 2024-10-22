@@ -463,7 +463,7 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
     If args.template_manifest is present, override the defaults with it."""
     # capsule_xml_path = "../data/manifest/dataset.xml"
     def_ij_wrapper_parameters: IJWrapperParameters = IJWrapperParameters(
-        memgb=106, parallel=32, input_uri=args.exaspim_data_uri, output_uri=args.alignment_output_uri
+        memgb=105, parallel=16, input_uri=args.exaspim_data_uri, output_uri=args.alignment_output_uri
     )
 
     def_ip_detection_parameters: IPDetectionParameters = IPDetectionParameters(
@@ -482,30 +482,89 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
         maximum_number_of_detections=150000,
     )
 
+    spark_ip_detections: IPDetectionParameters = SparkInterestPointDetections(
+        # dataset_xml=capsule_xml_path,  # For future S3 path
+        # IJwrap=def_ij_wrapper_parameters,
+        label="beads",
+        sigma=2.0,
+        threshold=0.005,
+        overlappingOnly=True,
+        minIntensity=1,
+        maxIntensity=5,
+        dsxy=16,
+        dsz=16,
+        medianFilter=10,
+        maxSpots=8000,
+        maxSpotsPerOverlap=True
+    )
+
     ip_reg_translation: IPRegistrationParameters = IPRegistrationParameters(
         # dataset_xml=capsule_xml_path,
         IJwrap=def_ij_wrapper_parameters,
-        transformation_choice="translation",
+        registration_algorithm="Precise descriptor-based (translation invariant)",
+        transformation_choice="rigid",
         compare_views_choice="overlapping_views",
         interest_point_inclusion_choice="overlapping_ips",
-        fix_views_choice="select_fixed",
-        fixed_tile_ids=(7,),
+        fix_views_choice="no_fixed",
+        fixed_tile_ids=[],
         map_back_views_choice="no_mapback",
         do_regularize=False,
+        search_radius=300,
+        number_of_neighbors=3,
+        redundancy=0,
+        significance=3,
+        allowed_error_for_ransac=100,
+        inlier_factor=6,
+        ransac_iterations="Thorough",
+        global_optimization_strategy="[One-Round: DO NOT handle unconnected tiles, DO NOT remove wrong links ('classic option')]"
     )
+    
     ip_reg_affine: IPRegistrationParameters = IPRegistrationParameters(
         # dataset_xml=capsule_xml_path,
         IJwrap=def_ij_wrapper_parameters,
+        registration_algorithm="Precise descriptor-based (translation invariant)",
         transformation_choice="affine",
         compare_views_choice="overlapping_views",
         interest_point_inclusion_choice="overlapping_ips",
-        fix_views_choice="select_fixed",
-        fixed_tile_ids=(7,),
+        fix_views_choice="no_fixed",
+        fixed_tile_ids=[],
         map_back_views_choice="no_mapback",
         do_regularize=True,
         regularize_with_choice="rigid",
+        regularization_lambda=0.05,
+        search_radius=100,
+        number_of_neighbors=3,
+        redundancy=0,
+        significance=3,
+        allowed_error_for_ransac=30,
+        inlier_factor=6,
+        ransac_iterations="Thorough",
+        global_optimization_strategy="[One-Round: DO NOT handle unconnected tiles, DO NOT remove wrong links ('classic option')]"        
     )
 
+    ip_reg_split_affine: IPRegistrationParameters = IPRegistrationParameters(
+        # dataset_xml=capsule_xml_path,
+        IJwrap=def_ij_wrapper_parameters,
+        registration_algorithm="Precise descriptor-based (translation invariant)",
+        transformation_choice="affine",
+        compare_views_choice="overlapping_views",
+        interest_point_inclusion_choice="overlapping_ips",
+        fix_views_choice="no_fixed",
+        fixed_tile_ids=[],
+        map_back_views_choice="no_mapback",
+        do_regularize=True,
+        regularize_with_choice="rigid",
+        regularization_lambda=0.01,
+        search_radius=100,
+        number_of_neighbors=3,
+        redundancy=1,
+        significance=3,
+        allowed_error_for_ransac=25,
+        inlier_factor=5,
+        ransac_iterations="Thorough",
+        global_optimization_strategy="[One-Round: DO NOT handle unconnected tiles, DO NOT remove wrong links ('classic option')]"
+    )
+    
     ch_name = args.channel
     # Even the flat-fielded fusions goes with the raw dataset prefix
     n5_to_zarr: N5toZarrParameters = N5toZarrParameters(
@@ -551,7 +610,7 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
             regularizationModel="RIGID",
             fixedViews=["0,7"],
         ),
-        ip_registrations=[ip_reg_translation, ip_reg_affine],
+        ip_registrations=[ip_reg_translation, ip_reg_affine, ip_reg_split_affine],
         n5_to_zarr=n5_to_zarr,
         zarr_multiscale=zarr_multiscale,
     )
@@ -664,7 +723,8 @@ def process_args(args):  # pragma: no cover
         # The input dataset is a raw dataset
         args.raw_dataset_bucket_name = args.input_dataset_bucket_name
         args.raw_dataset_prefix = args.input_dataset_prefix
-        args.raw_dataset_name = args.input_dataset_name
+        args.raw_dataset_name = args.input_dataset_name.split("_flatfield-correction_")[0]
+        
     # Get manifest bucket and path and 'directory' name
     url = urlparse(args.manifest_output_prefix_uri)
     args.manifest_bucket_name = url.netloc
