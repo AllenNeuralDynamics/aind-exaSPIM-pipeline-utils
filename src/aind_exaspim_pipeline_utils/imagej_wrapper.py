@@ -400,7 +400,7 @@ def main():  # pragma: no cover
         for reg_params in args["ip_registrations_params"]:
             macro_reg = f"/results/macro_ip_reg{reg_index:d}.ijm"
             reg_params = dict(reg_params)
-            reg_params["process_xml"] = args["process_xml"]
+            reg_params["process_xml"] = os.path.abspath(args["process_xml"])
             reg_params["parallel"] = args["parallel"]
             logger.info("Creating macro %s", macro_reg)
             with open(macro_reg, "w") as f:
