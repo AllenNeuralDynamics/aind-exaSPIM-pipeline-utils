@@ -100,7 +100,8 @@ run("Detect Interest Points for Registration",
         "global_optimization_strategy="+
         "[One-Round: DO NOT handle unconnected tiles, DO NOT remove wrong links ('classic option')]");
         """
-    # TODO: not work "[One-Round: DO NOT handle unconnected tiles, DO NOT remove wrong links ('classic option')]");
+    # https://github.com/PreibischLab/multiview-reconstruction/blob/86d6ed973967aab88fc102d62d05ad78797fb72a/src/main/java/net/preibisch/mvrecon/fiji/plugin/interestpointregistration/global/GlobalOptimizationParameters.java#L56
+
     TEMPLATE_REGULARIZE = """ regularize_model model_to_regularize_with={regularize_with} lambda=0.10"""
 
     MAP_COMPARE_VIEWS = {
