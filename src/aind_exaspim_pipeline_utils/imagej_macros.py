@@ -102,7 +102,47 @@ run("Detect Interest Points for Registration",
     #     "[One-Round: DO NOT handle unconnected tiles, DO NOT remove wrong links ('classic option')]");
     #     """
     
-    # ------- MACRO_IP_REG for affine -------#
+    # # ------- MACRO_IP_REG for affine -------#
+    # MACRO_IP_REG = """
+    #     run("Memory & Threads...", "parallel={parallel:d}");
+    #     run("Register Dataset based on Interest Points",
+    #     "select={process_xml} process_angle=[All angles] process_channel=[All channels] " +
+    #     "process_illumination=[All illuminations] process_tile=[All tiles] " +
+    #     "process_timepoint=[All Timepoints] " +
+    #     "registration_algorithm=[Precise descriptor-based (translation invariant)] " +
+    #     "registration_in_between_views=[{compare_views}] " +
+    #     "interest_point_inclusion=[{interest_point_inclusion}] " +
+    #     "interest_points=beads fix_views=[{fix_views}] " +
+    #     "map_back_views=[{map_back_views}] " +
+    #     "transformation={transformation}{regularization} " +
+    #     "limit_search_radius search_radius=100 " +
+    #     "number_of_neighbors=3 redundancy=0 significance=3 " +
+    #     "allowed_error_for_ransac=30 inlier_factor=6 ransac_iterations=Thorough " +
+    #     "global_optimization_strategy="+
+    #     "[One-Round: DO NOT handle unconnected tiles, DO NOT remove wrong links ('classic option')]");
+    #     """
+
+    # ------- MACRO_IP_REG for split affine -------#
+    # MACRO_IP_REG = """
+    #     run("Memory & Threads...", "parallel={parallel:d}");
+    #     run("Register Dataset based on Interest Points",
+    #     "select={process_xml} process_angle=[All angles] process_channel=[All channels] " +
+    #     "process_illumination=[All illuminations] process_tile=[All tiles] " +
+    #     "process_timepoint=[All Timepoints] " +
+    #     "registration_algorithm=[Precise descriptor-based (translation invariant)] " +
+    #     "registration_in_between_views=[{compare_views}] " +
+    #     "interest_point_inclusion=[{interest_point_inclusion}] " +
+    #     "interest_points=[Select multiple interestpoints [extra dialog]] beadstest-ov-2_split splitPoints_1731371428725 " +
+    #     "beadstest-ov-2_split_w=1 splitPoints_1731371428725_w=0.03 " +
+    #     "fix_views=[{fix_views}] map_back_views=[{map_back_views}] " +
+    #     "transformation={transformation}{regularization} " +
+    #     "limit_search_radius search_radius=100 " +
+    #     "number_of_neighbors=3 redundancy=1 significance=3 " +
+    #     "allowed_error_for_ransac=25 inlier_factor=5 ransac_iterations=Thorough " +
+    #     "global_optimization_strategy="+
+    #     "[One-Round: DO NOT handle unconnected tiles, DO NOT remove wrong links ('classic option')]");
+    #     """
+
     MACRO_IP_REG = """
         run("Memory & Threads...", "parallel={parallel:d}");
         run("Register Dataset based on Interest Points",
@@ -112,16 +152,43 @@ run("Detect Interest Points for Registration",
         "registration_algorithm=[Precise descriptor-based (translation invariant)] " +
         "registration_in_between_views=[{compare_views}] " +
         "interest_point_inclusion=[{interest_point_inclusion}] " +
-        "interest_points=beads fix_views=[{fix_views}] " +
-        "map_back_views=[{map_back_views}] " +
+        "interest_points=[Select multiple interestpoints [extra dialog]] {ip_label0} {ip_label1} " +
+        "{ip_label0}=1 {ip_label1}=0.03 " +
+        "fix_views=[{fix_views}] map_back_views=[{map_back_views}] " +
         "transformation={transformation}{regularization} " +
         "limit_search_radius search_radius=100 " +
-        "number_of_neighbors=3 redundancy=0 significance=3 " +
-        "allowed_error_for_ransac=30 inlier_factor=6 ransac_iterations=Thorough " +
+        "number_of_neighbors=3 redundancy=1 significance=3 " +
+        "allowed_error_for_ransac=25 inlier_factor=5 ransac_iterations=Thorough " +
         "global_optimization_strategy="+
         "[One-Round: DO NOT handle unconnected tiles, DO NOT remove wrong links ('classic option')]");
         """
 
+    # MACRO_IP_REG = """
+    #     run("Memory & Threads...", "parallel={parallel:d}");
+    #     run("Register Dataset based on Interest Points", "select={process_xml} process_angle=[All angles] process_channel=[All channels] process_illumination=[All illuminations] process_tile=[All tiles] process_timepoint=[All Timepoints] registration_algorithm=[Precise descriptor-based (translation invariant)] registration_in_between_views=[Only compare overlapping views (according to current transformations)] interest_point_inclusion=[Compare all interest point of overlapping views] interest_points=[Select multiple interestpoints [extra dialog]] beadstest-ov-2_split splitpoints_1731371428725 beadstest-ov-2_split=1 splitpoints_1731371428725=0.01 fix_views=[Fix first view] map_back_views=[Do not map back (use this if views are fixed)] transformation=Affine regularize_model model_to_regularize_with=Rigid lambda=0.10 number_of_neighbors=3 redundancy=0 significance=3 limit_search_radius search_radius=50 allowed_error_for_ransac=5 inlier_factor=3 ransac_iterations=Normal global_optimization_strategy=[Two-Round: Handle unconnected tiles, remove wrong links RELAXED (5.0x / 7.0px)]");
+    #     """
+    
+    # MACRO_IP_REG = """
+    #     run("Memory & Threads...", "parallel={parallel:d}");
+    #     run("Register Dataset based on Interest Points", 
+    #     "select={process_xml} process_angle=[All angles] process_channel=[All channels] 
+    #     process_illumination=[All illuminations] process_tile=[All tiles] 
+    #     process_timepoint=[All Timepoints] 
+    #     registration_algorithm=[Precise descriptor-based (translation invariant)] 
+    #     registration_in_between_views=[Only compare overlapping views (according to current transformations)]
+    #     interest_point_inclusion=[Compare all interest point of overlapping views] 
+    #     interest_points=[Select multiple interestpoints [extra dialog]] 
+    #     beadstest-ov-2_split splitpoints_1731371428725 beadstest-ov-2_split=1 splitpoints_1731371428725=0.01 
+    #     fix_views=[Fix first view] map_back_views=[Do not map back (use this if views are fixed)] 
+    #     transformation=Affine regularize_model model_to_regularize_with=Rigid lambda=0.10 
+    #     number_of_neighbors=3 redundancy=1 significance=3 
+    #     limit_search_radius search_radius=100 
+    #     allowed_error_for_ransac=25 inlier_factor=5 ransac_iterations=Thorough 
+    #     global_optimization_strategy=
+    #     [One-Round: DO NOT handle unconnected tiles, DO NOT remove wrong links ('classic option')]");
+    #     """
+
+    
     TEMPLATE_REGULARIZE = """ regularize_model model_to_regularize_with={regularize_with} lambda=0.05"""
 
     MAP_COMPARE_VIEWS = {
@@ -224,6 +291,9 @@ run("Detect Interest Points for Registration",
             fparams[
                 "select_reference_views"
             ] = " select_reference_views=[ViewSetupId:{:d} Timepoint:0]".format(P["map_back_reference_view"])
+        fparams["ip_label0"] = P["ip_label0"]
+        fparams["ip_label1"] = P["ip_label1"]
+        
         return ImagejMacros.MACRO_IP_REG.format(**fparams)
 
     @staticmethod

@@ -103,6 +103,14 @@ class IPDetectionSchema(argschema.ArgSchema):  # pragma: no cover
 
 class IPRegistrationSchema(argschema.ArgSchema):  # pragma: no cover
     """Adjustable parameters to register with translation only."""
+    
+    ip_label0 = fld.String(
+        required=True, 
+        metadata={"description": "Label for intetrest points beads_split"})
+
+    ip_label1 = fld.String(
+        required=True, 
+        metadata={"description": "Label for intetrest points splitPoints"})
 
     transformation_choice = fld.String(
         required=True,
@@ -394,6 +402,8 @@ def main():  # pragma: no cover
             shutil.copytree(ip_src, "/results/interestpoints.n5", dirs_exist_ok=True)
 
     if args["do_registrations"]:
+        logger.info("Arguments:", args)
+        
         if "ip_registrations_params" not in args:
             raise ValueError("Registration steps are requested but no configuration provided.")
         reg_index = 0
