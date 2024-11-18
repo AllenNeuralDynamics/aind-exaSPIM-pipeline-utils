@@ -29,6 +29,7 @@ from ..exaspim_manifest import (
     N5toZarrParameters,
     ZarrMultiscaleParameters,
     SparkInterestPointDetections,
+    SparkSplitDatasets,
     SparkGeometricDescriptorMatching,
     Solver,
 )
@@ -498,6 +499,23 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
         maxSpotsPerOverlap=True
     )
 
+    spark_split_datasets: SplitDatasetsParameters = SparkSplitDatasets(
+        # dataset_xml=capsule_xml_path,  # For future S3 path
+        # IJwrap=def_ij_wrapper_parameters,
+        xmlout="/results/bigstitcher_affine.xml",
+        targetImageSize="7000,7000,5000",
+        targetOverlap="128,128,128",
+        disableOptimization=False,
+        fakeInterestPoints=True,
+        fipDensity=100.0,
+        fipMinNumPoints=20,
+        fipMaxNumPoints=500,
+        fipError=0.5,
+        fipExclusionRadius=200.0,
+        assignIlluminations=True,
+        displayResult=False
+    )
+
     ip_reg_translation: IPRegistrationParameters = IPRegistrationParameters(
         # dataset_xml=capsule_xml_path,
         IJwrap=def_ij_wrapper_parameters,
@@ -554,7 +572,7 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
         map_back_views_choice="no_mapback",
         do_regularize=True,
         regularize_with_choice="rigid",
-        regularization_lambda=0.01,
+        regularization_lambda=0.1,
         search_radius=100,
         number_of_neighbors=3,
         redundancy=1,
@@ -610,7 +628,7 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
             regularizationModel="RIGID",
             fixedViews=["0,7"],
         ),
-        ip_registrations=[ip_reg_translation, ip_reg_affine, ip_reg_split_affine],
+        ip_registrations=[ip_reg_translation, ip_reg_affine, spark_split_datasets, ip_reg_split_affine],
         n5_to_zarr=n5_to_zarr,
         zarr_multiscale=zarr_multiscale,
     )

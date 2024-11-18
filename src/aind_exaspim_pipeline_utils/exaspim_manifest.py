@@ -255,6 +255,25 @@ class SparkInterestPointDetections(AindModel):  # pragma: no cover
     maxSpotsPerOverlap: bool = Field(True, title="apply the maximum number of spots individually to every overlapping area")
     
 
+class SparkSplitDatasets(AindModel):  
+    """Split datasets parameters
+    Ref: https://github.com/JaneliaSciComp/BigStitcher-Spark/blob/5654283f837f4951c814d2407b5df69d30df0df1/src/main/java/net/preibisch/bigstitcher/spark/SplitDatasets.java#L27
+    """
+
+    xmlout: str = Field("/results/bigstitcher_affine.xml", title="path to the output BigStitcher xml")
+    targetImageSize: str = Field("7000,7000,5000", title="target image size after splitting")
+    targetOverlap: str = Field("128,128,128", title="target overlap after splitting")
+    disableOptimization: bool = Field(False, title="do not optimize image size and overlap")
+    fakeInterestPoints: bool = Field(True, title="add fake interest points to overlapping regions of split images/views")
+    fipDensity: float = Field(100.0, title="density of fake interest points")
+    fipMinNumPoints: int = Field(20, title="minimal number of fake interest points per overlap")
+    fipMaxNumPoints: int = Field(500, title="maximal number of fake interest points per overlap")
+    fipError: float = Field(0.5, title="artificial error for fake corresponding interest points")
+    fipExclusionRadius: float = Field(200.0, title="exclusion radius for fake interest points")
+    assignIlluminations: bool = Field(True, title="assign old tile id's as illumination id's")
+    displayResult: bool = Field(False, title="display the result")
+    
+    
 class SparkGeometricDescriptorMatching(AindModel):  # pragma: no cover
     """Geometric descriptor matching parameters"""
 

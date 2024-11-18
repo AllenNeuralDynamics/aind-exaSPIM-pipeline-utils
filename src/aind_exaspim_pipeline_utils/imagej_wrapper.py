@@ -614,7 +614,7 @@ def imagej_wrapper_main():  # pragma: no cover
     write_process_metadata(process_meta, prefix="ipreg")
     logger.info("Uploading capsule results to {}".format(args["output_uri"]))
     upload_alignment_results(args)
-
-
+    
+    
 if __name__ == "__main__":  # pragma: no cover
     main()
