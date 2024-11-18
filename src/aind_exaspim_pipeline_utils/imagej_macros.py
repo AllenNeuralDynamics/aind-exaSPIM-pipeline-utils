@@ -189,7 +189,7 @@ run("Detect Interest Points for Registration",
     #     """
 
     
-    TEMPLATE_REGULARIZE = """ regularize_model model_to_regularize_with={regularize_with} lambda=0.05"""
+    TEMPLATE_REGULARIZE = """ regularize_model model_to_regularize_with={regularize_with} lambda=0.1"""
 
     MAP_COMPARE_VIEWS = {
         "all_views": "Compare all views against each other",
