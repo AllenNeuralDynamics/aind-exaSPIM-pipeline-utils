@@ -457,7 +457,6 @@ def recursive_update_mapping(
         recursive_assign_items(dst, key, src, key)
     return dst
 
-
 def create_exaspim_manifest(args, metadata):  # pragma: no cover
     """Create exaspim manifest from the dataset metadata that we have.
 
@@ -628,7 +627,8 @@ def create_exaspim_manifest(args, metadata):  # pragma: no cover
             regularizationModel="RIGID",
             fixedViews=["0,7"],
         ),
-        ip_registrations=[ip_reg_translation, ip_reg_affine, spark_split_datasets, ip_reg_split_affine],
+        # ip_registrations=[ip_reg_translation, ip_reg_affine, spark_split_datasets, ip_reg_split_affine]
+        ip_registrations=[ip_reg_translation, ip_reg_affine, ip_reg_split_affine],
         n5_to_zarr=n5_to_zarr,
         zarr_multiscale=zarr_multiscale,
     )
@@ -686,7 +686,8 @@ def upload_manifest(args, manifest: ExaspimProcessingPipeline):  # pragma: no co
     """Write out the given manifest as a json file and upload to S3"""
     object_name = "/".join((args.manifest_path, "exaspim_manifest.json"))
     with open("../results/exaspim_manifest.json", "w") as f:
-        f.write(manifest.json(indent=4))
+        f.write(manifest.model_dump_json())
+
 
     logger.info(f"Uploading manifest to bucket {args.manifest_bucket_name} : {object_name}")
     s3 = boto3.client("s3")  # Authentication should be available in the environment

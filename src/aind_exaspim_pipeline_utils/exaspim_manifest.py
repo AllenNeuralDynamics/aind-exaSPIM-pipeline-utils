@@ -6,7 +6,8 @@ import os
 from datetime import datetime
 from typing import Optional, Tuple, List, Union
 
-from aind_data_schema import DataProcess
+from aind_data_schema.core.processing import DataProcess
+
 from aind_data_schema.base import AindModel
 from pydantic import Field, validator
 import argparse
@@ -57,7 +58,6 @@ class ZarrMultiscaleParameters(AindModel):  # pragma: no cover
 
     output_uri: Optional[str] = Field(None, title="Output Zarr group dataset path if different from input.")
 
-
 class IJWrapperParameters(AindModel):  # pragma: no cover
     """ImageJ wrapper memory and parallelization runtime parameters"""
 
@@ -99,7 +99,7 @@ class IPDetectionParameters(AindModel):  # pragma: no cover
     )
     find_minima: bool = Field(False, title="Find minima (beads_mode==manual only).")
     find_maxima: bool = Field(True, title="Find maxima (beads_mode==manual only).")
-    set_minimum_maximum: bool = Field(False, title="Define the minimum and maximum intensity range manually")
+    set_minimum_maximum: bool = Field(False, title="Define write_process_metadata minimum and maximum intensity range manually")
     minimal_intensity: int = Field(0, title="Minimal intensity value (if set_minimum_maximum==True).")
     maximal_intensity: int = Field(65535, title="Minimal intensity value (if set_minimum_maximum==True).")
     maximum_number_of_detections: int = Field(
@@ -442,8 +442,11 @@ class ExaspimProcessingPipeline(AindModel):  # pragma: no cover
 
     If a field is None, it is considered to be a disabled step."""
 
-    schema_version: str = Field("0.11.0", title="Schema Version", const=True)
-    license: str = Field("CC-BY-4.0", title="License", const=True)
+    # schema_version: str = Field("0.11.0", title="Schema Version", const=True)
+    # license: str = Field("CC-BY-4.0", title="License", const=True)
+
+    schema_version: str = Field("0.11.0", title="Schema Version")
+    license: str = Field("CC-BY-4.0", title="License")
 
     creation_time: datetime = Field(
         ...,
@@ -575,8 +578,10 @@ def write_process_metadata(capsule_metadata: DataProcess, prefix=None) -> None: 
     else:
         prefix = prefix + "_"
     # with open(f"../results/meta/exaspim_{prefix}process.json", "w") as f:
-    with open("../results/process_output.json", "w") as f:
-        f.write(capsule_metadata.json(indent=3))
+    with open("../results/output_aind_metadata/processing.json", "w") as f:
+        # f.write(capsule_metadata.json(indent=3))
+        f.write(capsule_metadata.model_dump_json())
+
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -17,12 +17,12 @@ readme = "README.md"
 dynamic = ["version"]
 
 dependencies = [
-    'argschema',
-    's3fs',
-    'pydantic',
-    'psutil',
-    'aind-data-schema',
-    'aind-codeocean-api==0.3.0',
+    'argschema==3.0.1',
+    's3fs==2024.10.0',
+    'pydantic==2.10.3',
+    'psutil==5.9.4',
+    'aind-data-schema==1.1.1',
+    'aind-codeocean-api==0.4.2',
     'aind-ng-link>=1.0.15',
 ]
 
