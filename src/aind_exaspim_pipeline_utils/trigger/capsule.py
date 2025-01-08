@@ -383,11 +383,10 @@ def validate_channel_name(metadata: dict, args: argparse.Namespace) -> str:  # p
         for t in acq["tiles"]:
             ch_names.append(t["channel"]["channel_name"])
             scale = t["coordinate_transformations"][0]["scale"]
-            if isinstance(scale, list):
-                ch_scales.append(scale)
-            else:
-                ch_scales.append([scale])
+            ch_scales.append(tuple([float(i) for i in scale]))
+            
     logger.info(f"Found channels in acquisition metadata: {set(ch_names)}")
+    logger.info(f"Found ch_scales in acquisition metadata: {set(ch_scales)}")
 
     if args.channel:
         if args.channel not in ch_names:
@@ -397,7 +396,7 @@ def validate_channel_name(metadata: dict, args: argparse.Namespace) -> str:  # p
         
         # select the signal channel with resolution of 0.748*0.748*1.0 for stitcher
         flag_find = False
-        predefined_scale = [0.748, 0.748, 1.0]
+        predefined_scale = (0.748, 0.748, 1.0)
         # Find the channel with the predefined scale
         for channel, scale in zip(ch_names, ch_scales):
             if scale == predefined_scale:
