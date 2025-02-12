@@ -66,10 +66,10 @@ def read_in_n5_ips(tile_setupId, transform_3x4=None):  # pragma: no cover
         for i in range(N):
             vec[:3] = loc[i]
             v2 = np.matmul(transform_3x4, vec)
-            P.append({'x': v2[2], 'y': v2[1], 'z': v2[0]})
+            P.append({"x": v2[2], "y": v2[1], "z": v2[0]})
     else:
         for i in range(10):
-            P.append({'x': loc[i][2], 'y': loc[i][1], 'z': loc[i][0]})
+            P.append({"x": loc[i][2], "y": loc[i][1], "z": loc[i][0]})
     return P
 
 
@@ -106,6 +106,7 @@ def get_tile_positions_s3(dataset_uri: str):  # pragma: no cover
         tile_positions[tile_path.name] = translation
 
     return tile_positions
+
 
 # Copy the relevant bits from create_ng_link.py and create ng link with
 # annotation layer
@@ -220,7 +221,8 @@ def create_ng_link_with_annotation(
         # vec = np.matmul(point_net_transforms[tile_id], vec)
         # ips.append({'x': vec[2],'y': vec[1], 'z': vec[0]})
         ips = read_in_n5_ips(tile_id, point_net_transforms[tile_id])
-        layers.append({
+        layers.append(
+            {
                 "type": "annotation",
                 "source": f"precomputed://ng/tile_{tile_id}/precomputed",
                 "tool": "annotatePoint",
@@ -229,7 +231,8 @@ def create_ng_link_with_annotation(
                 # Pass None or delete limits if
                 # you want to include all the points
                 # "limits": [100, 200],  # None # erase line
-            })
+            }
+        )
 
     # ng_dir, json_name = os.path.split(output_json)
     ng_dir = "ng"
