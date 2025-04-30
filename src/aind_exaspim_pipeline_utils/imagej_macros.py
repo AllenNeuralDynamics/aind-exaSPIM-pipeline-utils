@@ -1,17 +1,21 @@
-"""ImageJ Macro creator module."""
+"""ImageJ Macro creator module.
+
+This module provides utilities for generating ImageJ macros from template strings
+by substituting parameter values. It supports macros for phase correlation, interest
+point detection, and registration.
+"""
+
 from typing import Any, Dict
 
 
 class ImagejMacros:
-    """Generate imageJ macros from template strings by substituting parameter values.
+    """Generate ImageJ macros from template strings by substituting parameter values.
 
-    This class does not check substitution values and expects that all values are valid.
+    This class provides static methods to generate macros for various ImageJ operations.
+    It expects valid parameter values and does not perform extensive validation.
     """
 
-    # Fiji macro allows new line at , separated arguments
-    # strings can be added " " + " "
-    # within strings, [ ] can be used for spaces, for file names? TBC
-
+    # Macro templates
     MACRO_PHASE_CORRELATION = """
 run("Memory & Threads...", "parallel={parallel:d}");
 run("Calculate pairwise shifts ...",
@@ -52,20 +56,6 @@ run("Detect Interest Points for Registration",
 "compute_on=[CPU (Java)]{manual_minimum_maximum}{limit_amount_of_detections}");
     """
 
-    MAP_BEAD_CHOICE = {
-        "very_weak_small": "Very weak & small (beads)",
-        "weak_small": "Weak & small (beads)",
-        "sample_small": "Comparable to Sample & small (beads)",
-        "strong_small": "Strong & small (beads)",
-        "manual": "Advanced ...",
-    }
-
-    MAP_IP_LIMITATION_CHOICE = {
-        "brightest": "Brightest",
-        "around_median": "Around median (of those above threshold)",
-        "weakest": "Weakest (above threshold)",
-    }
-
     MACRO_IP_REG = """
 run("Memory & Threads...", "parallel={parallel:d}");
 run("Register Dataset based on Interest Points",
@@ -84,10 +74,26 @@ run("Register Dataset based on Interest Points",
 
     TEMPLATE_REGULARIZE = """ regularize_model model_to_regularize_with={regularize_with} lambda=0.10"""
 
+    # Mapping dictionaries for macro parameters
+    MAP_BEAD_CHOICE = {
+        "very_weak_small": "Very weak & small (beads)",
+        "weak_small": "Weak & small (beads)",
+        "sample_small": "Comparable to Sample & small (beads)",
+        "strong_small": "Strong & small (beads)",
+        "manual": "Advanced ...",
+    }
+
+    MAP_IP_LIMITATION_CHOICE = {
+        "brightest": "Brightest",
+        "around_median": "Around median (of those above threshold)",
+        "weakest": "Weakest (above threshold)",
+    }
+
     MAP_COMPARE_VIEWS = {
         "all_views": "Compare all views against each other",
         "overlapping_views": "Only compare overlapping views (according to current transformations)",
     }
+
     MAP_INTEREST_POINT_INCLUSION = {
         "overlapping_ips": "Only compare interest points that overlap "
         + "between views (according to current transformations)",
@@ -119,12 +125,27 @@ run("Register Dataset based on Interest Points",
 
     @staticmethod
     def get_macro_ip_det(P: Dict[str, Any]) -> str:
-        """Get a parameter formatted IP detection macro.
+        """Generate an interest point detection macro.
 
         Parameters
         ----------
-        P : `dict`
-          Parameter dictionary for macro formatting.
+        P : dict
+            Parameter dictionary for macro formatting. Expected keys:
+            - bead_choice : str
+            - find_minima : bool
+            - find_maxima : bool
+            - sigma : float
+            - threshold : float
+            - set_minimum_maximum : bool
+            - minimal_intensity : float
+            - maximal_intensity : float
+            - maximum_number_of_detections : int
+            - ip_limitation_choice : str
+
+        Returns
+        -------
+        str
+            Formatted macro string for interest point detection.
         """
         fparams = dict(P)
         fparams["manual_bead_choice"] = ""
@@ -154,12 +175,26 @@ run("Register Dataset based on Interest Points",
 
     @staticmethod
     def get_macro_ip_reg(P: Dict[str, Any]) -> str:
-        """Get a parameter formatted IP registration macro.
+        """Generate an interest point registration macro.
 
         Parameters
         ----------
-        P : `dict`
-          Parameter dictionary for macro template formatting.
+        P : dict
+            Parameter dictionary for macro formatting. Expected keys:
+            - compare_views_choice : str
+            - interest_point_inclusion_choice : str
+            - fix_views_choice : str
+            - transformation_choice : str
+            - map_back_views_choice : str
+            - do_regularize : bool
+            - regularize_with_choice : str
+            - fixed_tile_ids : list of int
+            - map_back_reference_view : int
+
+        Returns
+        -------
+        str
+            Formatted macro string for interest point registration.
         """
         fparams = dict(P)
         fparams["compare_views"] = ImagejMacros.MAP_COMPARE_VIEWS[P["compare_views_choice"]]
@@ -188,19 +223,22 @@ run("Register Dataset based on Interest Points",
 
     @staticmethod
     def get_macro_phase_correlation(P: Dict[str, Any]) -> str:
-        """ Get a parameter formatted phase correlation macro.
+        """Generate a phase correlation macro.
 
         Parameters
         ----------
-        P : `dict`
-          Parameter dictionary for macro formatting.
-            Note: Will already have
-                process_xml: path to xml to process
-                downsample: pyramid level to use
-                min_correlation: minimum correlation to consider
-                max_shift_in_x: maximum shift in x
-                max_shift_in_y: maximum shift in y
-                max_shift_in_z: maximum shift in z
+        P : dict
+            Parameter dictionary for macro formatting. Expected keys:
+            - process_xml : str
+            - downsample : int
+            - min_correlation : float
+            - max_shift_in_x : float
+            - max_shift_in_y : float
+            - max_shift_in_z : float
+
+        Returns
+        -------
+        str
+            Formatted macro string for phase correlation.
         """
-        fparams = dict(P)
-        return ImagejMacros.MACRO_PHASE_CORRELATION.format(**fparams)
+        return ImagejMacros.MACRO_PHASE_CORRELATION.format(**P)

@@ -1,4 +1,10 @@
-"""Wrapper functions and runtime arguments definition."""
+"""Wrapper functions and runtime arguments definition for ImageJ.
+
+This module provides schemas for runtime arguments, utility functions, and
+the main entry points for executing ImageJ macros for interest point detection,
+registration, and phase correlation.
+"""
+
 import datetime
 import json
 import logging
@@ -26,9 +32,8 @@ from .qc import bigstitcher_log_edge_analysis
 from .qc.create_ng_link import create_ng_link
 
 
-class PhaseCorrelationSchema(argschema.ArgSchema):  # pragma: no cover
-
-    """Adjustable parameters for phase correlation."""
+class PhaseCorrelationSchema(argschema.ArgSchema):
+    """Schema for phase correlation parameters."""
 
     downsample = fld.Int(
         required=True,
@@ -48,9 +53,8 @@ class PhaseCorrelationSchema(argschema.ArgSchema):  # pragma: no cover
     )
 
 
-class IPDetectionSchema(argschema.ArgSchema):  # pragma: no cover
-
-    """Adjustable parameters to detect IP."""
+class IPDetectionSchema(argschema.ArgSchema):
+    """Schema for interest point detection parameters."""
 
     downsample = fld.Int(
         required=True,
@@ -59,7 +63,7 @@ class IPDetectionSchema(argschema.ArgSchema):  # pragma: no cover
     bead_choice = fld.String(
         required=True,
         validate=mm.validate.OneOf(list(ImagejMacros.MAP_BEAD_CHOICE.keys())),
-        metadata={"description": "Beads detection mode"},
+        metadata={"description": "Beads detection mode."},
     )
     sigma = fld.Float(
         load_default=1.8, metadata={"description": "Difference of Gaussians sigma (beads_mode==manual only)."}
@@ -76,88 +80,84 @@ class IPDetectionSchema(argschema.ArgSchema):  # pragma: no cover
     )
     set_minimum_maximum = fld.Boolean(
         load_default=False,
-        metadata={"description": "Define the minimum and maximum intensity range manually"},
+        metadata={"description": "Define the minimum and maximum intensity range manually."},
     )
     minimal_intensity = fld.Float(
         load_default=0, metadata={"description": "Minimal intensity value (if set_minimum_maximum==True)."}
     )
     maximal_intensity = fld.Float(
         load_default=65535,
-        metadata={"description": "Minimal intensity value (if set_minimum_maximum==True)."},
+        metadata={"description": "Maximal intensity value (if set_minimum_maximum==True)."},
     )
     maximum_number_of_detections = fld.Int(
         load_default=0,
         metadata={
-            "description": "If not equal to 0, the number of maximum IPs to detect."
-                           " Set ip_limitation_choice, too."
+            "description": "If not equal to 0, the number of maximum IPs to detect. "
+                           "Set ip_limitation_choice, too."
         },
     )
     ip_limitation_choice = fld.String(
         required=True,
         validate=mm.validate.OneOf(list(ImagejMacros.MAP_IP_LIMITATION_CHOICE.keys())),
         metadata={
-            "description": "How to pick limit_amount_of_detections is set >0 and the maximum number is hit."
+            "description": "How to pick limit_amount_of_detections if set >0 and the maximum number is hit."
         },
     )
 
 
-class IPRegistrationSchema(argschema.ArgSchema):  # pragma: no cover
-    """Adjustable parameters to register with translation only."""
+class IPRegistrationSchema(argschema.ArgSchema):
+    """Schema for interest point registration parameters."""
 
     transformation_choice = fld.String(
         required=True,
         validate=mm.validate.OneOf(list(ImagejMacros.MAP_TRANSFORMATION.keys())),
-        metadata={"description": "Translation, rigid or full affine transformation ?"},
+        metadata={"description": "Translation, rigid, or full affine transformation."},
     )
-
     compare_views_choice = fld.String(
         required=True,
         validate=mm.validate.OneOf(list(ImagejMacros.MAP_COMPARE_VIEWS.keys())),
-        metadata={"description": "Which views to compare ?"},
+        metadata={"description": "Which views to compare."},
     )
-
     interest_point_inclusion_choice = fld.String(
         required=True,
         validate=mm.validate.OneOf(list(ImagejMacros.MAP_INTEREST_POINT_INCLUSION.keys())),
-        metadata={"description": "Which interest points to use ?"},
+        metadata={"description": "Which interest points to use."},
     )
-
     fix_views_choice = fld.String(
         required=True,
         validate=mm.validate.OneOf(list(ImagejMacros.MAP_FIX_VIEWS.keys())),
-        metadata={"description": "Which views to fix ?"},
+        metadata={"description": "Which views to fix."},
     )
-
     fixed_tile_ids = fld.List(
         fld.Int,
-        load_default=[
-            0,
-        ],
-        metadata={"description": "Setup ids of fixed tiles (fix_views_choice==select_fixed)."},
+        load_default=[0],
+        metadata={"description": "Setup IDs of fixed tiles (fix_views_choice==select_fixed)."},
     )
     map_back_views_choice = fld.String(
         required=True,
         validate=mm.validate.OneOf(list(ImagejMacros.MAP_MAP_BACK_VIEWS.keys())),
-        metadata={"description": "How to map back views?"},
+        metadata={"description": "How to map back views."},
     )
     map_back_reference_view = fld.Int(
         load_default=0, metadata={"description": "Selected reference view for map back."}
     )
-    do_regularize = fld.Boolean(default=False, metadata={"description": "Do regularize transformation?"})
+    do_regularize = fld.Boolean(
+        default=False, metadata={"description": "Do regularize transformation?"}
+    )
     regularization_lambda = fld.Float(
         load_default=0.1, metadata={"description": "Regularization lambda (do_regularize==True only)."}
     )
     regularize_with_choice = fld.String(
         load_default="rigid",
         validate=mm.validate.OneOf(list(ImagejMacros.MAP_REGULARIZATION.keys())),
-        metadata={"description": "Which regularization to use (do_regularize==True only) ?"},
+        metadata={"description": "Which regularization to use (do_regularize==True only)."},
     )
 
 
-class ImageJWrapperSchema(argschema.ArgSchema):  # pragma: no cover
-    """Command line arguments."""
+class ImageJWrapperSchema(argschema.ArgSchema):
+    """Schema for ImageJ wrapper command-line arguments."""
 
-    session_id = fld.String(required=True, metadata={"description": "Processing run session identifier"})
+    session_id = fld.String(required=True, metadata={"description": "Processing run session identifier."})
     memgb = fld.Int(
         required=True,
         metadata={
@@ -170,48 +170,44 @@ class ImageJWrapperSchema(argschema.ArgSchema):  # pragma: no cover
         metadata={"description": "Number of parallel Java worker threads."},
         validate=mm.validate.Range(min=1, max=128),
     )
-    dataset_xml = fld.String(required=True, metadata={"description": "Input xml dataset definition"})
+    dataset_xml = fld.String(required=True, metadata={"description": "Input XML dataset definition."})
     phase_correlation_params = fld.Nested(
-        PhaseCorrelationSchema, required=False, metadata={"description": "Phase correlation parameters"}
+        PhaseCorrelationSchema, required=False, metadata={"description": "Phase correlation parameters."}
     )
     do_detection = fld.Boolean(required=True, metadata={"description": "Do interest point detection?"})
     ip_detection_params = fld.Nested(
-        IPDetectionSchema, required=False, metadata={"description": "Interest point detection parameters"}
+        IPDetectionSchema, required=False, metadata={"description": "Interest point detection parameters."}
     )
     do_registrations = fld.Boolean(
         required=True,
-        metadata={"description": "Do first transformation fitting ?"},
+        metadata={"description": "Perform first transformation fitting?"},
     )
     ip_registrations_params = fld.Nested(
         IPRegistrationSchema,
         required=False,
-        metadata={"description": "Registration parameters (do_registrations==True only)"},
+        metadata={"description": "Registration parameters (do_registrations==True only)."},
         many=True,
     )
     do_phase_correlation = fld.Boolean(
         required=False,
-        metadata={"description": "Do phase correlation for affine only?"},
+        metadata={"description": "Perform phase correlation for affine only?"},
     )
 
 
-def print_output(data, f, stderr=False) -> None:  # pragma: no cover
-    """Print output to stdout or stderr and to a file if specified."""
-    if stderr:
-        print(data, end="", file=sys.stderr, flush=True)
-    else:
-        print(data, end="", flush=True)
-    if f:
-        print(data, end="", file=f, flush=True)
+def fmt_uri(uri: str, trailing_slash: bool = True) -> str:
+    """Format a URI to be used as a folder name.
 
+    Parameters
+    ----------
+    uri : str
+        The URI to format.
+    trailing_slash : bool, optional
+        Whether to ensure a trailing slash at the end of the URI, by default True.
 
-def fmt_uri(uri: str, trailing_slash=True) -> str:  # pragma: no cover
-    """Format the uri to be used as a folder name.
-
-    All multiple occurrence internal slashes are replaced to single ones.
-
-    Local paths can be relative or absolute, trailing slash will be added if missing.
-
-    S3 references formatted to pattern ``s3://bucket/path/``
+    Returns
+    -------
+    str
+        The formatted URI.
     """
     p = urlparse(uri)
     s1 = f"{p.scheme}:" if p.scheme else ""
@@ -222,50 +218,39 @@ def fmt_uri(uri: str, trailing_slash=True) -> str:  # pragma: no cover
 
 
 def wrapper_cmd_run(cmd: Union[str, List], logger: logging.Logger, f_stdout=None, f_stderr=None) -> int:
-    """Wrapper for a shell command.
-
-    Wraps a shell command.
-
-    It monitors, captures and re-prints stdout and strderr as the command progresses.
-
-    TBD: Validate the program output on-the-fly and kill it if failure detected.
+    """Run a shell command with real-time output monitoring.
 
     Parameters
     ----------
-    cmd: `str`
-        Command that we want to execute.
-
-    logger: `logging.Logger`
-        Logger instance to use.
+    cmd : Union[str, List]
+        The command to execute.
+    logger : logging.Logger
+        Logger instance for logging command execution details.
+    f_stdout : file-like, optional
+        File to write stdout output, by default None.
+    f_stderr : file-like, optional
+        File to write stderr output, by default None.
 
     Returns
     -------
-    r: `int`
-      Cmd return code.
+    int
+        The return code of the command.
     """
     logger.info("Starting command (%s)", str(cmd))
     with selectors.DefaultSelector() as sel, subprocess.Popen(
-            cmd, bufsize=4096, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        cmd, bufsize=4096, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     ) as p:
         sel.register(p.stdout, selectors.EVENT_READ)
         sel.register(p.stderr, selectors.EVENT_READ)
-        while p.poll() is None:  # pragma: no cover
+        while p.poll() is None:
             for key, _ in sel.select():
                 data = key.fileobj.read1().decode()
                 if not data:
                     continue
                 if key.fileobj is p.stdout:
-                    print_output(data, f_stdout, stderr=False)
+                    print(data, end="", flush=True, file=f_stdout)
                 else:
-                    print_output(data, f_stderr, stderr=True)
-        # Ensure to process everything that may be left in the buffer
-        # This may be unnecessary, the process may not terminate until the pipes are at EOF
-        data = p.stdout.read().decode()
-        if data:
-            print_output(data, f_stdout, stderr=False)
-        data = p.stderr.read().decode()
-        if data:
-            print_output(data, f_stderr, stderr=True)
+                    print(data, end="", flush=True, file=f_stderr)
         r = p.poll()
     logger.info("Command finished with return code %d", r)
     return r

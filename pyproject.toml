@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "aind_exaspim_pipeline_utils"
 description = "AIND exaSPIM pipeline utilities."
 license = {text = "MIT"}
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [
     {name = "Allen Institute for Neural Dynamics"}
 ]
@@ -17,21 +17,18 @@ readme = "README.md"
 dynamic = ["version"]
 
 dependencies = [
-    'argschema',
+    'argschema==3.0.4',
     's3fs',
-    'pydantic',
-    'psutil',
-    'matplotlib',
-    'scipy',
-    'aind-data-schema==0.33.3',
-    'aind-codeocean-api',
-    'aind-ng-link>=1.0.15',
+    'aind-data-schema==1.4.0',
+    'scipy==1.13.1',
+    'aind-codeocean-api==0.5.1',
+    'aind-ng-link==1.0.17',
     'numpy<2.0'
 ]
 
 [project.optional-dependencies]
 dev = [
-    'aind-exaspim-pipeline-utils[n5tozarr]',
+    # 'aind-exaspim-pipeline-utils[n5tozarr]',
     'black',
     'coverage',
     'flake8',
