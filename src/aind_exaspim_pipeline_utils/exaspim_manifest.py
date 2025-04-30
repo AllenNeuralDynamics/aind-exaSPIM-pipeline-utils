@@ -11,7 +11,7 @@ import os
 from datetime import datetime
 from typing import Optional, Tuple, List, Union, Literal
 
-from aind_data_schema.core.processing import DataProcess
+from aind_data_schema.processing import DataProcess
 from aind_data_schema.base import AindModel
 from pydantic import Field, validator
 import argparse
