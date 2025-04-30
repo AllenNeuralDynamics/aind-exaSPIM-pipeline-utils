@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "aind_exaspim_pipeline_utils"
 description = "AIND exaSPIM pipeline utilities."
 license = {text = "MIT"}
-requires-python = ">=3.9"
+requires-python = ">=3.8"
 authors = [
     {name = "Allen Institute for Neural Dynamics"}
 ]
@@ -17,13 +17,13 @@ readme = "README.md"
 dynamic = ["version"]
 
 dependencies = [
-    'argschema==3.0.4',
+    'argschema',
     's3fs',
-    'aind-data-schema==1.4.0',
-    'scipy==1.13.1',
-    'aind-codeocean-api==0.5.1',
-    'aind-ng-link==1.0.17',
-    'numpy<2.0'
+    'pydantic',
+    'psutil',
+    'aind-data-schema',
+    'aind-codeocean-api==0.3.0',
+    'aind-ng-link==1.0.6',
 ]
 
 [project.optional-dependencies]
@@ -39,16 +39,16 @@ dev = [
 ]
 
 n5tozarr = [
-    # n5 to zarr conversion
+     # n5 to zarr conversion
     'dask',
     'distributed',
     'zarr',
     'numcodecs',
-    'aind-data-transfer[imaging]==0.35.3',
-    # missing dependencies from aind-data-transfer[imaging]
+    'aind-data-transfer[full]==0.32.0',
+    # missing dependencies from aind-data-transfer[full]
     # These supposed to be installed by post_install.sh
-    'hdf5plugin',
-    'kerchunk'
+#    'hdf5plugin',
+#    'kerchunk'
 ]
 
 [tool.setuptools.packages.find]
