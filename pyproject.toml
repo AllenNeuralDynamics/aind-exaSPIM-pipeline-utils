@@ -16,17 +16,14 @@ classifiers = [
 readme = "README.md"
 dynamic = ["version"]
 
-dependencies = [
-    'argschema',
-    's3fs',
-    'pydantic',
-    'psutil',
-    'aind-data-schema',
-    'aind-codeocean-api==0.3.0',
-    'aind-ng-link==1.0.17',
-]
+dependencies = []
 
 [project.optional-dependencies]
+imagejwrapperonly = [
+    'argschema',
+    'pydantic',
+    'psutil',
+]
 dev = [
     # 'aind-exaspim-pipeline-utils[n5tozarr]',
     'black',

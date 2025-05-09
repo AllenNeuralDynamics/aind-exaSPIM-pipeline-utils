@@ -1,5 +1,4 @@
 """Wrapper functions and runtime arguments definition."""
-import datetime
 import json
 import logging
 import os
@@ -15,8 +14,6 @@ import argschema
 import argschema.fields as fld
 import marshmallow as mm
 import psutil
-import s3fs
-from aind_data_schema.processing import DataProcess, ProcessName
 import xml.etree.ElementTree as ET
 
 # from aind_data_schema import DataProcess
@@ -25,9 +22,6 @@ import xml.etree.ElementTree as ET
 
 from . import __version__
 from .imagej_macros import ImagejMacros
-from .exaspim_manifest import get_capsule_manifest, write_process_metadata, ExaspimProcessingPipeline
-from .qc import bigstitcher_log_edge_analysis
-from .qc.create_ng_link import create_ng_link
 
 class PhaseCorrelationSchema(argschema.ArgSchema):  # pragma: no cover
     """Adjustable parameters for phase correlation."""
@@ -441,56 +435,6 @@ def main():  # pragma: no cover
 
     logger.info("Done.")
 
-
-def get_imagej_wrapper_metadata(
-        parameters: dict, input_location: str = None, output_location: str = None
-) -> DataProcess:  # pragma: no cover
-    """Initiate metadata instance with current timestamp and configuration."""
-    t = datetime.datetime.now()
-    dp = DataProcess(
-        name=ProcessName.IMAGE_TILE_ALIGNMENT,
-        software_version="0.1.0",
-        start_date_time=t,
-        end_date_time=t,
-        input_location=input_location,
-        output_location=output_location,
-        code_url="https://github.com/AllenNeuralDynamics/aind-exaSPIM-pipeline-utils",
-        code_version=__version__,
-        parameters=parameters,
-        outputs=None,
-        notes="IN PROGRESS",
-    )
-    return dp
-
-
-def set_metadata_done(meta: DataProcess) -> None:  # pragma: no cover
-    """Update end timestamp and set metadata note to ``DONE``.
-
-    Parameters
-    ----------
-    meta: DataProcess
-      Capsule metadata instance.
-    """
-    t = datetime.datetime.now()
-    meta.end_date_time = t
-    meta.notes = "DONE"
-
-
-def upload_alignment_results(args: dict):  # pragma: no cover
-    """Upload the whole contents of the result folder to S3."""
-    # Set up the S3 file system
-    fs = s3fs.S3FileSystem()
-    url = urlparse(args["output_uri"])
-    if url.scheme != "s3":
-        raise NotImplementedError("Only s3 output_uri is supported, not {url.scheme}")
-    
-    results_path = os.path.abspath(args['results_path'])
-    
-    fs.put(
-        results_path, url.netloc + url.path.rstrip("/") + "/", recursive=True, maxdepth=10
-    )  # Interestpoints.n5 have a bunch of subfolders
-
-
 def create_emr_ready_xml(args: dict, num_regs: int = 1):  # pragma: no cover
     """Copy the solution xml into an EMR run ready version.
 
@@ -517,184 +461,6 @@ def create_emr_ready_xml(args: dict, num_regs: int = 1):  # pragma: no cover
         # write the xml file
         emr_xml_name_path = os.path.join(results_path, emr_xml_name)
         tree.write(emr_xml_name_path, encoding="utf-8")
-
-
-def create_edge_connectivity_report(num_registrations: int) -> None:  # pragma: no cover
-    """Create a report of edge connectivity failures."""
-    results_path = os.path.abspath(args['results_path'])
-    
-    log_file = os.path.join(results_path, "edge_connectivity_report.txt")
-    
-    # Read the log file
-    with open(log_file, "w") as f_report:
-        for i in range(num_registrations):
-            print(f"Edge dis-connectivity based on ip_registration{i:d}.log (running order):", file=f_report)
-            ip_reg_log = os.path.join(results_path, f"ip_registration{i:d}.log")
-            with open(ip_reg_log, "r") as f:
-                lines = f.readlines()
-            # Extract the tile pair numbers from failed RANSAC correspondence finding log messages
-            blocks = bigstitcher_log_edge_analysis.get_unfitted_tile_pairs(lines)
-            # Create a visualization of the failed edges
-            # Write the visualization to a file
-            bigstitcher_log_edge_analysis.print_visualization(blocks, file=f_report)
-
-
-def imagej_do_registrations(pipeline_manifest: ExaspimProcessingPipeline,
-                            args: dict, logger: logging.Logger,
-                            process_meta: DataProcess):  # pragma: no cover
-    """Do the registrations.
-
-    Do the registrations and create ng links for all the registrations and
-    the original placements."""
-    reg_index = 0
-    results_path = os.path.abspath(args['results_path'])
-    
-    if pipeline_manifest.ip_registrations:
-        for ipreg_params in pipeline_manifest.ip_registrations:
-            macro_reg = os.path.join(results_path, f"macro_ip_reg{reg_index:d}.ijm")
-            reg_params = ipreg_params.dict()
-            reg_params.update(ipreg_params.IJwrap.dict())
-            reg_params["process_xml"] = args["process_xml"]
-            logger.info("Creating macro %s", macro_reg)
-            with open(macro_reg, "w") as f:
-                f.write(ImagejMacros.get_macro_ip_reg(reg_params))
-            
-            ip_reg_log = os.path.join(results_path, f"ip_registration{reg_index:d}.log")
-            
-            with open(ip_reg_log, "w") as f_out:
-                r = wrapper_cmd_run(
-                    [
-                        "ImageJ",
-                        "-Dimagej.updater.disableAutocheck=true",
-                        "--headless",
-                        "--memory",
-                        "{memgb}G".format(**reg_params),
-                        "--console",
-                        "--run",
-                        macro_reg,
-                    ],
-                    logger,
-                    f_stdout=f_out,
-                    f_stderr=f_out,
-                )
-            if r != 0:
-                raise RuntimeError(f"IP registration {reg_index} command failed.")
-            reg_index += 1
-
-        # Create ng links for all the registrations
-        nglinks = []
-        for i in range(reg_index + 1):
-            suffix = f"~{i}" if i > 0 else ""
-            xml_path = args["process_xml"] + suffix
-            if os.path.exists(xml_path):
-                logger.info("Creating ng link for registration %d (xml order)", i)
-                output_json = os.path.join(results_path, f"ng/process_output_{i}.json")
-                thelink = create_ng_link(
-                    "{}SPIM.ome.zarr".format(args["input_uri"]),
-                    args["output_uri"].rstrip("/"),
-                    xml_path=xml_path,
-                    output_json=output_json,
-                )
-                if thelink:
-                    nglinks.append(thelink)
-            else:
-                logger.warning("Registration %d xml file %s does not exist. Skipping.", i, xml_path)
-        if process_meta.outputs is None:
-            process_meta.outputs = {}
-        if nglinks:
-            process_meta.outputs["ng_links"] = nglinks
-        logger.info("Creating edge connectivity report")
-        create_edge_connectivity_report(reg_index)
-    logger.info("Creating EMR ready xml from bigstitcher.xml")
-    create_emr_ready_xml(args, num_regs=reg_index)
-
-
-def imagej_wrapper_main():  # pragma: no cover
-    """Entry point with the manifest config."""
-    # logging.basicConfig(format="%(asctime)s %(name)s %(levelname)-7s %(message)s")
-    logging.basicConfig(format="%(asctime)s %(levelname)-7s %(message)s")
-
-    logger = logging.getLogger()
-    pipeline_manifest = get_capsule_manifest()
-
-    args = {
-        "dataset_xml": "../data/manifest/dataset.xml",
-        "session_id": pipeline_manifest.pipeline_suffix,
-        "log_level": logging.DEBUG,
-        "name": pipeline_manifest.name,
-        "subject_id": pipeline_manifest.subject_id,
-    }
-    # "input_uri" and "output_uri" are formatted to have trailing slashes
-    if pipeline_manifest.ip_registrations:
-        args["output_uri"] = fmt_uri(pipeline_manifest.ip_registrations[-1].IJwrap.output_uri)
-        args["input_uri"] = fmt_uri(pipeline_manifest.ip_registrations[-1].IJwrap.input_uri)
-    else:
-        args["output_uri"] = fmt_uri(pipeline_manifest.ip_detection.IJwrap.output_uri)
-        args["input_uri"] = fmt_uri(pipeline_manifest.ip_detection.IJwrap.input_uri)
-
-    logger.setLevel(logging.DEBUG)
-    logging.getLogger("botocore").setLevel(logging.INFO)
-    logging.getLogger("urllib3").setLevel(logging.INFO)
-    logging.getLogger("s3fs").setLevel(logging.INFO)
-
-    args.update(get_auto_parameters(args))
-    process_meta = get_imagej_wrapper_metadata(
-        {
-            "ip_detection": pipeline_manifest.ip_detection,
-            "ip_registrations": pipeline_manifest.ip_registrations,
-        },
-        input_location=args["input_uri"],
-        output_location=args["output_uri"],
-    )
-
-    write_process_metadata(process_meta, prefix="ipreg")
-    ip_det_parameters = pipeline_manifest.ip_detection
-    if ip_det_parameters is not None:
-        logger.info("Copying input xml %s -> %s", args["dataset_xml"], args["process_xml"])
-        shutil.copy(args["dataset_xml"], args["process_xml"])
-
-        det_params = pipeline_manifest.ip_detection.dict()
-        det_params.update(pipeline_manifest.ip_detection.IJwrap.dict())
-        det_params["process_xml"] = args["process_xml"]
-        logger.info("Creating macro %s", args["macro_ip_det"])
-        with open(args["macro_ip_det"], "w") as f:
-            f.write(ImagejMacros.get_macro_ip_det(det_params))
-        with open("../results/ip_detection.log", "w") as f_out:
-            r = wrapper_cmd_run(
-                [
-                    "ImageJ",
-                    "-Dimagej.updater.disableAutocheck=true",
-                    "--headless",
-                    "--memory",
-                    "{memgb}G".format(**det_params),
-                    "--console",
-                    "--run",
-                    args["macro_ip_det"],
-                ],
-                logger,
-                f_stdout=f_out,
-                f_stderr=f_out,
-            )
-            if r != 0:
-                raise RuntimeError("IP detection command failed.")
-    else:
-        if pipeline_manifest.ip_registrations:
-            # At the moment we did not define an IP detection only dataset
-            # We assume that interest point detections are already present in the input dataset
-            # in the folder of the xml dataset file (in the manifest folder)
-            logger.info("Assume already detected interestpoints.")
-            ip_src = os.path.join(os.path.dirname(args["dataset_xml"]), "interestpoints.n5")
-            logger.info("Copying %s -> ../results/", ip_src)
-            shutil.copytree(ip_src, "../results/interestpoints.n5", dirs_exist_ok=True)
-
-    # Separate function to keep overall complexity low
-    imagej_do_registrations(pipeline_manifest, args, logger, process_meta)
-
-    logger.info("Setting processing metadata to done")
-    set_metadata_done(process_meta)
-    write_process_metadata(process_meta, prefix="ipreg")
-    logger.info("Uploading capsule results to {}".format(args["output_uri"]))
-    upload_alignment_results(args)
 
 
 if __name__ == "__main__":  # pragma: no cover
