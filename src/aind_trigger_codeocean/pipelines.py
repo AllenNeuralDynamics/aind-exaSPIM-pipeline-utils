@@ -202,7 +202,6 @@ class CapsuleJob:
         )
         run_capsule_response = self.co_client.run_capsule(request=run_capsule_request)
         run_capsule_response_json = run_capsule_response.json()
-        print(run_capsule_response_json)
         computation_id = run_capsule_response_json["id"]
 
         if pause_interval:
@@ -436,7 +435,8 @@ class RegisterAindData(CapsuleJob):
             regex_matches = re.search(self.SUBJECT_REGEX_PATTERN, self.prefix)
             experiment_type = regex_matches.group(1)
             subject_id = regex_matches.group(2)
-            tags = [experiment_type, DataLevel.RAW.value, subject_id]
+            tags = [experiment_type, DataLevel.DERIVED.value, subject_id]
+
         return tags
 
     @property

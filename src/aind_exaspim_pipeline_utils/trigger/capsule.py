@@ -128,10 +128,11 @@ def get_dataset_metadata(args) -> dict:  # pragma: no cover
     files = ["data_description.json", "subject.json", "acquisition.json", "exaSPIM_acquisition.json"]
     logger.info("Reading metadata files from S3.")
     for f in files:
-        object_name = "/".join((args.input_dataset_prefix, f))
+        object_name = "/".join((args.raw_dataset_prefix, f))
+        
         # Try the input dataset
         if not get_s3_file(args.input_dataset_bucket_name, object_name, f"../results/{f}"):
-            logger.warning(f"Metadata file {f} not found in {args.input_dataset_prefix}")
+            logger.warning(f"Metadata file {f} not found in {args.raw_dataset_prefix}")
             object_name = "/".join((args.raw_dataset_prefix, f))
             if not get_s3_file(args.raw_dataset_bucket_name, object_name, f"../results/{f}"):
                 logger.warning(f"Metadata file not found {f} in {args.raw_dataset_prefix}. Skipping.")
@@ -245,7 +246,7 @@ def register_raw_dataset_as_CO_data_asset(args, meta, co_client):  # pragma: no 
     )
     data_asset_reg_response = R.run_job()
 
-    print(data_asset_reg_response)
+    print("*** register_raw_dataset_as_CO_data_asset data_asset_reg_response, {data_asset_reg_response}")
     response_contents = data_asset_reg_response.json()
     logger.info(f"Created data asset in Code Ocean: {response_contents}")
 
@@ -316,6 +317,8 @@ def run_xml_capsule(args, co_client, input_data_asset_id, manifest_data_asset_id
         ComputationDataAsset(id=manifest_data_asset_id, mount="manifest"),
     ]
     C = RegisterDataJob(configs={}, co_client=co_client)
+    
+    logger.info(f"xml_capsule_id: {args.xml_capsule_id}, data_assets: {data_assets}")
     run_response = C.run_capsule(capsule_id=args.xml_capsule_id, data_assets=data_assets, pause_interval=10)
 
     run_response = run_response.json()
@@ -728,8 +731,8 @@ def process_args(args):  # pragma: no cover
     args.input_dataset_bucket_name = url.netloc
     # Includes the last element and optionally other path elements
     # No slashes at the beginning and end of prefixes
-    args.input_dataset_prefix = url.path.strip("/")
-    args.input_dataset_name = os.path.basename(args.input_dataset_prefix)  # Only the last entry as "name"
+    args.input_dataset_prefix = os.path.dirname(url.path.strip("/"))
+    args.input_dataset_name = args.input_dataset_prefix  # Only the last entry as "name"
     if args.raw_data_uri:
         # There is a separate raw dataset given - the input dataset is flat-fielded
         args.raw_data_uri = fmt_uri(args.raw_data_uri)
@@ -740,8 +743,9 @@ def process_args(args):  # pragma: no cover
     else:
         # The input dataset is a raw dataset
         args.raw_dataset_bucket_name = args.input_dataset_bucket_name
-        args.raw_dataset_prefix = args.input_dataset_prefix
-        args.raw_dataset_name = args.input_dataset_name.split("_flatfield-correction_")[0]
+        args.raw_dataset_name = args.input_dataset_name.split("_processed_")[0]
+        args.raw_data_uri  = "s3://{}/{}/".format(args.raw_dataset_bucket_name, args.raw_dataset_name)
+        args.raw_dataset_prefix = args.raw_dataset_name
         
     # Get manifest bucket and path and 'directory' name
     url = urlparse(args.manifest_output_prefix_uri)
@@ -774,9 +778,11 @@ def capsule_main():  # pragma: no cover
         )
 
     process_args(args)
+    
     logger.info("This is pipeline run {}".format(args.fname_timestamp))
     metadata = get_dataset_metadata(args)
     validate_channel_name(metadata, args)
+    
     # Creating the API Client
     co_client = CodeOceanClient(domain=os.environ["CODEOCEAN_DOMAIN"], token=os.environ["CUSTOM_KEY"])
     # validate_s3_location(args, metadata)
@@ -784,10 +790,10 @@ def capsule_main():  # pragma: no cover
         args.input_dataset_name, args.input_dataset_bucket_name, args.input_dataset_prefix, co_client
     )
 
-    if args.raw_data_uri and args.raw_dataset_prefix != args.input_dataset_prefix:
-        register_or_get_dataset_as_CO_data_asset(
-            args.raw_dataset_name, args.raw_dataset_bucket_name, args.raw_dataset_prefix, co_client
-        )
+    # if args.raw_data_uri and args.raw_dataset_prefix != args.input_dataset_prefix:
+    #     register_or_get_dataset_as_CO_data_asset(
+    #         args.raw_dataset_name, args.raw_dataset_bucket_name, args.raw_dataset_prefix, co_client
+    #     )
     manifest = create_exaspim_manifest(args, metadata)
     upload_manifest(args, manifest)
     create_and_upload_emr_config(args, manifest)
