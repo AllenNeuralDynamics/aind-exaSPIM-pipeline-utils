@@ -23,7 +23,7 @@ from . import __version__
 from .imagej_macros import ImagejMacros
 from .exaspim_manifest import get_capsule_manifest, write_process_metadata, ExaspimProcessingPipeline
 from .qc import bigstitcher_log_edge_analysis
-from .qc.create_ng_link import create_ng_link
+# from .qc.create_ng_link import create_ng_link
 
 
 class IPDetectionSchema(argschema.ArgSchema):  # pragma: no cover
