@@ -351,19 +351,21 @@ def main():  # pragma: no cover
         with open(args["macro_phase_corr"], "w") as f:
             f.write(ImagejMacros.get_macro_phase_correlation(det_params))
         
+        command = [
+            "ImageJ",
+            "-Dimagej.updater.disableAutocheck=true",
+            "-Dimglib2.cache.cell.dimensions=64,64,64",
+            "--headless",
+            "--memory",
+            "{memgb}G".format(**args),
+            "--console",
+            "--run",
+            args["macro_phase_corr"],
+        ]
+        print(f"Running phase correlation command: {command}...")
         #run phase correlation
         r = wrapper_cmd_run(
-            [
-                "ImageJ",
-                "-Dimagej.updater.disableAutocheck=true",
-                "-Dimglib2.cache.cell.dimensions=64,64,64",
-                "--headless",
-                "--memory",
-                "{memgb}G".format(**args),
-                "--console",
-                "--run",
-                args["macro_phase_corr"],
-            ], 
+            command, 
             logger,
         )
     if r != 0:
@@ -377,18 +379,22 @@ def main():  # pragma: no cover
         logger.info("Creating macro %s", args["macro_ip_det"])
         with open(args["macro_ip_det"], "w") as f:
             f.write(ImagejMacros.get_macro_ip_det(det_params))
+
+        command = [
+            "ImageJ",
+            "-Dimagej.updater.disableAutocheck=true",
+            "-Dimglib2.cache.cell.dimensions=64,64,64",
+            "--headless",
+            "--memory",
+            "{memgb}G".format(**args),
+            "--console",
+            "--run",
+            args["macro_ip_det"],
+        ]
+        print(f"Running detection command: {command}...")
+        
         r = wrapper_cmd_run(
-            [
-                "ImageJ",
-                "-Dimagej.updater.disableAutocheck=true",
-                "-Dimglib2.cache.cell.dimensions=64,64,64",
-                "--headless",
-                "--memory",
-                "{memgb}G".format(**args),
-                "--console",
-                "--run",
-                args["macro_ip_det"],
-            ],
+            command,
             logger,
         )
         if r != 0:
@@ -418,18 +424,22 @@ def main():  # pragma: no cover
             logger.info("Creating macro %s", macro_reg)
             with open(macro_reg, "w") as f:
                 f.write(ImagejMacros.get_macro_ip_reg(reg_params))
+
+            command = [
+                "ImageJ",
+                "-Dimagej.updater.disableAutocheck=true",
+                "-Dimglib2.cache.cell.dimensions=64,64,64",
+                "--headless",
+                "--memory",
+                "{memgb}G".format(**args),
+                "--console",
+                "--run",
+                macro_reg,
+            ]
+            print(f"Running registration command: {command}...")
+            
             r = wrapper_cmd_run(
-                [
-                    "ImageJ",
-                    "-Dimagej.updater.disableAutocheck=true",
-                    "-Dimglib2.cache.cell.dimensions=64,64,64",
-                    "--headless",
-                    "--memory",
-                    "{memgb}G".format(**args),
-                    "--console",
-                    "--run",
-                    macro_reg,
-                ],
+                command,
                 logger,
             )
             if r != 0:
