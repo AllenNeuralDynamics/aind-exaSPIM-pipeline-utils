@@ -356,6 +356,7 @@ def main():  # pragma: no cover
             [
                 "ImageJ",
                 "-Dimagej.updater.disableAutocheck=true",
+                "-Dimglib2.cache.cell.dimensions=64,64,64",
                 "--headless",
                 "--memory",
                 "{memgb}G".format(**args),
@@ -380,6 +381,7 @@ def main():  # pragma: no cover
             [
                 "ImageJ",
                 "-Dimagej.updater.disableAutocheck=true",
+                "-Dimglib2.cache.cell.dimensions=64,64,64",
                 "--headless",
                 "--memory",
                 "{memgb}G".format(**args),
@@ -420,6 +422,7 @@ def main():  # pragma: no cover
                 [
                     "ImageJ",
                     "-Dimagej.updater.disableAutocheck=true",
+                    "-Dimglib2.cache.cell.dimensions=64,64,64",
                     "--headless",
                     "--memory",
                     "{memgb}G".format(**args),
