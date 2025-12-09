@@ -115,9 +115,9 @@ run("Detect Interest Points for Registration",
         "interest_points=beads fix_views=[{fix_views}] " +
         "map_back_views=[{map_back_views}] " +
         "transformation={transformation}{regularization} " +
-        "limit_search_radius search_radius=100 " +
+        "limit_search_radius search_radius=600 " +
         "number_of_neighbors=3 redundancy=0 significance=3 " +
-        "allowed_error_for_ransac=30 inlier_factor=6 ransac_iterations=Thorough " +
+        "allowed_error_for_ransac=30 inlier_factor=5 ransac_iterations=Thorough " +
         "global_optimization_strategy="+
         "[One-Round: DO NOT handle unconnected tiles, DO NOT remove wrong links ('classic option')]");
         """
