@@ -156,7 +156,7 @@ run("Detect Interest Points for Registration",
         "{ip_label0}=1 {ip_label1}=0.03 " +
         "fix_views=[{fix_views}] map_back_views=[{map_back_views}] " +
         "transformation={transformation}{regularization} " +
-        "limit_search_radius search_radius=100 " +
+        "limit_search_radius search_radius=300 " +
         "number_of_neighbors=3 redundancy=1 significance=3 " +
         "allowed_error_for_ransac=25 inlier_factor=5 ransac_iterations=Thorough " +
         "global_optimization_strategy="+
