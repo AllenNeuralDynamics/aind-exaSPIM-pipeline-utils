@@ -743,7 +743,7 @@ def process_args(args):  # pragma: no cover
     else:
         # The input dataset is a raw dataset
         args.raw_dataset_bucket_name = args.input_dataset_bucket_name
-        args.raw_dataset_name = args.input_dataset_name.split("_processed_")[0]
+        args.raw_dataset_name = args.input_dataset_name
         args.raw_data_uri  = "s3://{}/{}/".format(args.raw_dataset_bucket_name, args.raw_dataset_name)
         args.raw_dataset_prefix = args.raw_dataset_name
         
