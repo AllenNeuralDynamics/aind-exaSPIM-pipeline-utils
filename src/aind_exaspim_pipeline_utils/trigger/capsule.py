@@ -153,12 +153,12 @@ def get_dataset_metadata(args) -> dict:  # pragma: no cover
         del metadata["exaSPIM_acquisition"]
 
     # Validate subject_id
-    m = re.match(r".*exaSPIM_(\w+)_\d{4}-\d{2}-\d{2}", args.input_dataset_prefix)
+    m = re.match(r".*exaSPIM_(\w+)_\d{4}-\d{2}-\d{2}", args.input_dataset_name)
     if m:
         fname_subject_id = m.group(1)
     else:
         raise ValueError(
-            "Cannot extract subject id from the input dataset prefix {}".format(args.input_dataset_prefix)
+            "Cannot extract subject id from the input dataset prefix {}".format(args.input_dataset_name)
         )
 
     if not metadata["subject"]:
@@ -178,18 +178,6 @@ def get_dataset_metadata(args) -> dict:  # pragma: no cover
                 )
 
     return metadata
-
-
-# TODO: Validate whether the location we're processing matches with the metadata given location
-# def validate_s3_location(args, meta):  # pragma: no cover
-#     """Get the last data_process and check whether we're at its output location"""
-#     lastproc: DataProcess = DataProcess.parse_obj(meta["processing"]["data_processes"][-1])
-#     meta_url = urlparse(lastproc.output_location)
-#
-#     if meta_url.netloc != args.input_dataset_bucket_name or \
-#     meta_url.path.strip("/") != args.input_dataset_prefix:
-#         raise ValueError(
-#         "Output location of last DataProcess does not match with current dataset location")
 
 
 def register_or_get_dataset_as_CO_data_asset(
@@ -789,10 +777,6 @@ def capsule_main():  # pragma: no cover
         args.input_dataset_name, args.input_dataset_bucket_name, co_client
     )
 
-    # if args.raw_data_uri and args.raw_dataset_prefix != args.input_dataset_prefix:
-    #     register_or_get_dataset_as_CO_data_asset(
-    #         args.raw_dataset_name, args.raw_dataset_bucket_name, args.raw_dataset_prefix, co_client
-    #     )
     manifest = create_exaspim_manifest(args, metadata)
     upload_manifest(args, manifest)
     create_and_upload_emr_config(args, manifest)
