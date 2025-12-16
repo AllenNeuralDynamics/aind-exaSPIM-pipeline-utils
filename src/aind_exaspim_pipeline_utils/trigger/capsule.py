@@ -193,7 +193,7 @@ def get_dataset_metadata(args) -> dict:  # pragma: no cover
 
 
 def register_or_get_dataset_as_CO_data_asset(
-    dataset_name, dataset_bucket, dataset_prefix, co_client
+    dataset_name, dataset_bucket, co_client
 ):  # pragma: no cover
     """Query the input dataset for existence and register it if not found.
 
@@ -209,13 +209,13 @@ def register_or_get_dataset_as_CO_data_asset(
         if r["name"] == dataset_name:
             # Check that it points to the same bucket and prefix
             sourceBucket = r.get("source_bucket", {})
-            if sourceBucket.get("prefix") == dataset_prefix and sourceBucket.get("bucket") == dataset_bucket:
+            if sourceBucket.get("prefix") == dataset_name and sourceBucket.get("bucket") == dataset_bucket:
                 logger.info(f"Found dataset {dataset_name} in CO as {r['id']}")
                 return r["id"]
     # Not found, register
     logger.info(f"Register dataset as a data asset in CO. {dataset_bucket}:{dataset_name}")
     # Register data asset
-    data_configs = {"prefix": dataset_prefix, "bucket": dataset_bucket}
+    data_configs = {"prefix": dataset_name, "bucket": dataset_bucket}
 
     R = RegisterAindData(
         configs=data_configs, co_client=co_client, viewable_to_everyone=True, is_public_bucket=True
@@ -731,8 +731,7 @@ def process_args(args):  # pragma: no cover
     args.input_dataset_bucket_name = url.netloc
     # Includes the last element and optionally other path elements
     # No slashes at the beginning and end of prefixes
-    args.input_dataset_prefix = os.path.dirname(url.path.strip("/"))
-    args.input_dataset_name = args.input_dataset_prefix  # Only the last entry as "name"
+    args.input_dataset_name = url.path.strip("/")
     if args.raw_data_uri:
         # There is a separate raw dataset given - the input dataset is flat-fielded
         args.raw_data_uri = fmt_uri(args.raw_data_uri)
@@ -787,7 +786,7 @@ def capsule_main():  # pragma: no cover
     co_client = CodeOceanClient(domain=os.environ["CODEOCEAN_DOMAIN"], token=os.environ["CUSTOM_KEY"])
     # validate_s3_location(args, metadata)
     input_data_asset_id = register_or_get_dataset_as_CO_data_asset(
-        args.input_dataset_name, args.input_dataset_bucket_name, args.input_dataset_prefix, co_client
+        args.input_dataset_name, args.input_dataset_bucket_name, co_client
     )
 
     # if args.raw_data_uri and args.raw_dataset_prefix != args.input_dataset_prefix:
