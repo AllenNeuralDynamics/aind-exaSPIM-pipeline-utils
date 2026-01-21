@@ -39,6 +39,28 @@ run("Optimize globally and apply shifts ...",
     "process_illumination=[All illuminations] process_tile=[All tiles]" +
     " process_timepoint=[All Timepoints]" +
     " relative=2.500 absolute=3.500 global_optimization_strategy=" +
+    "[Two-Round using Metadata to align unconnected Tiles] fix_group_0-0,");
+
+eval("script", "System.exit(0);");
+"""
+    MACRO_PROTEOMICS_PHASE_CORRELATION = """
+run("Memory & Threads...", "parallel={parallel:d}");
+run("Calculate pairwise shifts ...",
+    " select={process_xml}" +
+    " process_angle=[All angles] process_channel=[All channels]" +
+    " process_illumination=[All illuminations] process_tile=[All tiles] process_timepoint=[All Timepoints]" +
+    " method=[Phase Correlation] show_expert_grouping_options" +
+    " how_to_treat_timepoints=group how_to_treat_channels=group how_to_treat_illuminations=group" +
+    " how_to_treat_angles=group how_to_treat_tiles=compare" +
+    " channels=[Average Channels]" +
+    " downsample_in_x={downsample} downsample_in_y={downsample} downsample_in_z={downsample}");
+
+// do global optimization
+run("Optimize globally and apply shifts ...",
+    "select={process_xml} process_angle=[All angles] process_channel=[All channels] " +
+    "process_illumination=[All illuminations] process_tile=[All tiles]" +
+    " process_timepoint=[All Timepoints]" +
+    " relative={relative_optimization_threshold} absolute={absolute_optimization_threshold} global_optimization_strategy=" +
     "[Two-Round using Metadata to align unconnected Tiles and iterative dropping of bad links] fix_group_0-0,");
 
 eval("script", "System.exit(0);");
@@ -242,3 +264,21 @@ run("Register Dataset based on Interest Points",
             Formatted macro string for phase correlation.
         """
         return ImagejMacros.MACRO_PHASE_CORRELATION.format(**P)
+
+    @staticmethod
+    def get_macro_proteomics_phase_correlation(P: Dict[str, Any]) -> str:
+        """Generate a phase correlation macro.
+
+        Parameters
+        ----------
+        P : dict
+            Parameter dictionary for macro formatting. Expected keys:
+            - process_xml : str
+            - downsample : int
+
+        Returns
+        -------
+        str
+            Formatted macro string for proteomics phase correlation.
+        """
+        return ImagejMacros.MACRO_PROTEOMICS_PHASE_CORRELATION.format(**P)

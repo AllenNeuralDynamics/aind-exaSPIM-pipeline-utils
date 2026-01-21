@@ -347,6 +347,7 @@ def main():  # pragma: no cover
 
     if args['do_phase_correlation']:
         # logger.info("Creating macro for phase correlation", args["do_phase_correlation"])
+
         
         det_params = dict(args["phase_correlation_params"])
         det_params["process_xml"] = args["process_xml"]
@@ -355,7 +356,10 @@ def main():  # pragma: no cover
 
         #write phase correlation macro
         with open(args["macro_phase_corr"], "w") as f:
-            f.write(ImagejMacros.get_macro_phase_correlation(det_params))
+            if args["proteomics_dataset"]:
+                f.write(ImagejMacros.get_macro_proteomics_phase_correlation(det_params))
+            else:
+                f.write(ImagejMacros.get_macro_phase_correlation(det_params))
         
         #run phase correlation
         r = wrapper_cmd_run(
