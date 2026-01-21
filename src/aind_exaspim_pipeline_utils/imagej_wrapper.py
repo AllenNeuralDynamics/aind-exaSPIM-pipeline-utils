@@ -47,6 +47,18 @@ class PhaseCorrelationSchema(argschema.ArgSchema):  # pragma: no cover
     max_shift_in_z = fld.Int(
         load_default=0, metadata={"description": "Maximum displacement in z direction."},
     )
+    proteomics_dataset = fld.Boolean(
+        load_default=False, metadata={"description": "Is this a proteomics dataset?"},
+    )
+    relative_optimization_threshold = fld.Float(
+        load_default=2.5, metadata={"description": "Relative optimization threshold for global optimization."},
+    )
+    absolute_optimization_threshold = fld.Float(
+        load_default=3.5, metadata={"description": "Absolute optimization threshold for global optimization."},
+    )
+    max_error = fld.Float(
+        load_default=5.0, metadata={"description": "Maximum error for phase correlation."},
+    )
 
 class IPDetectionSchema(argschema.ArgSchema):  # pragma: no cover
     """Adjustable parameters to detect IP."""
@@ -190,6 +202,9 @@ class ImageJWrapperSchema(argschema.ArgSchema):  # pragma: no cover
     do_phase_correlation = fld.Boolean(
         required = False,
         metadata = {"description": "Do phase correlation for affine only?"}
+    )
+    proteomics_dataset = fld.Boolean(
+        load_default=False, metadata={"description": "Is this a proteomics dataset?"},
     )
     results_path = fld.String(required=False, dump_default="/results", metadata={"description": "Results folder"})
 
