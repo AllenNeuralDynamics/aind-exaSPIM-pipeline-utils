@@ -186,6 +186,7 @@ class ImageJWrapperSchema(argschema.ArgSchema):  # pragma: no cover
         validate=mm.validate.Range(min=1, max=128),
     )
     dataset_xml = fld.String(required=True, metadata={"description": "Input xml dataset definition"})
+    dataset_xml_iterative_solver = fld.String(required=False, metadata={"description": "Input xml dataset definition for the iterative solver"})
     phase_correlation_params = fld.Nested(
         PhaseCorrelationSchema, required=False, metadata={"description": "Phase correlation parameters"}
     )
@@ -348,6 +349,8 @@ def main():  # pragma: no cover
     args = dict(parser.args)
     results_path = os.path.abspath(args['results_path'])
     args['dataset_xml'] = os.path.abspath(args['dataset_xml'])
+    if 'dataset_xml_iterative_solver' in args and args['dataset_xml_iterative_solver']:
+        args['dataset_xml_iterative_solver'] = os.path.abspath(args['dataset_xml_iterative_solver'])
     print("dataset xml ", args['dataset_xml'])
     
     logger.setLevel(args["log_level"])
@@ -370,7 +373,8 @@ def main():  # pragma: no cover
 
         
         det_params = dict(args["phase_correlation_params"])
-        shutil.copy(args["dataset_xml_iterative_solver"], args["process_xml_iterative_solver"])
+        if 'dataset_xml_iterative_solver' in args and args['dataset_xml_iterative_solver']:
+            shutil.copy(args["dataset_xml_iterative_solver"], args["process_xml_iterative_solver"])
         det_params["process_xml"] = args["process_xml"]
         if 'parallel' not in det_params:
             det_params['parallel'] = args['parallel']
