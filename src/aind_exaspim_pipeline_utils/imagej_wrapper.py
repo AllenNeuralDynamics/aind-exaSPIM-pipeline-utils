@@ -376,7 +376,7 @@ def main():  # pragma: no cover
         
         det_params = dict(args["phase_correlation_params"])
         if 'dataset_xml_iterative_solver' in args and args['dataset_xml_iterative_solver']:
-            shutil.copy(args["dataset_xml_iterative_solver"], args["process_xml_iterative_solver"])
+            shutil.copy(args["dataset_xml"], args["process_xml_iterative_solver"])
         det_params["process_xml"] = args["process_xml"]
         if 'parallel' not in det_params:
             det_params['parallel'] = args['parallel']
