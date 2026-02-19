@@ -326,11 +326,13 @@ def get_auto_parameters(args: Dict) -> Dict:  # pragma: no cover
     results_path = os.path.abspath(args['results_path'])
     
     process_xml = f"{results_path}/bigstitcher.xml"
+    process_xml_iterative_solver = f"{results_path}/bigstitcher.xml~1"
     macro_ip_det = f"{results_path}/macro_ip_det.ijm"
     macro_phase_corr = f"{results_path}/macro_phase_corr.ijm"
     
     return {
         "process_xml": process_xml,
+        "process_xml_iterative_solver": process_xml_iterative_solver,
         # Do not use, this is the whole VM at the moment, not what is available for the capsule
         "auto_ncpu": ncpu,
         "auto_memgb": mem_GB,
