@@ -59,6 +59,10 @@ class PhaseCorrelationSchema(argschema.ArgSchema):  # pragma: no cover
     max_error = fld.Float(
         load_default=5.0, metadata={"description": "Maximum error for phase correlation."},
     )
+    process_xml_iterative_solver = fld.String(
+        required=False, metadata={"description": "Path to the xml file to use for the iterative solver phase correlation."}
+    )
+    
 
 class IPDetectionSchema(argschema.ArgSchema):  # pragma: no cover
     """Adjustable parameters to detect IP."""
@@ -359,13 +363,14 @@ def main():  # pragma: no cover
     
     logger.info("Copying input XML %s -> %s", args["dataset_xml"], args["process_xml"])
     shutil.copy(args["dataset_xml"], args["process_xml"])
-    shutil.copy(args["dataset_xml_iterative_solver"], args["process_xml_iterative_solver"])
+    
 
     if args['do_phase_correlation']:
         # logger.info("Creating macro for phase correlation", args["do_phase_correlation"])
 
         
         det_params = dict(args["phase_correlation_params"])
+        shutil.copy(args["dataset_xml_iterative_solver"], args["process_xml_iterative_solver"])
         det_params["process_xml"] = args["process_xml"]
         if 'parallel' not in det_params:
             det_params['parallel'] = args['parallel']
