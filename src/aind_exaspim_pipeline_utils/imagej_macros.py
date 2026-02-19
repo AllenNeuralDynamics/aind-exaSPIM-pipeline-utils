@@ -61,6 +61,18 @@ run("Optimize globally and apply shifts ...",
     "process_illumination=[All illuminations] process_tile=[All tiles]" +
     " process_timepoint=[All Timepoints]" +
     " relative={relative_optimization_threshold} absolute={absolute_optimization_threshold} global_optimization_strategy=" +
+    "[Two-Round using Metadata to align unconnected Tiles] fix_group_0-0,");
+
+eval("script", "System.exit(0);");
+"""
+    MACRO_PROTEOMICS_PHASE_CORRELATION_ITERATIVE_SOLVER = """
+run("Memory & Threads...", "parallel={parallel:d}");
+// do global optimization
+run("Optimize globally and apply shifts ...",
+    "select={process_xml_iterative_solver} process_angle=[All angles] process_channel=[All channels] " +
+    "process_illumination=[All illuminations] process_tile=[All tiles]" +
+    " process_timepoint=[All Timepoints]" +
+    " relative={relative_optimization_threshold} absolute={absolute_optimization_threshold} global_optimization_strategy=" +
     "[Two-Round using Metadata to align unconnected Tiles and iterative dropping of bad links] fix_group_0-0,");
 
 eval("script", "System.exit(0);");
@@ -282,3 +294,21 @@ run("Register Dataset based on Interest Points",
             Formatted macro string for proteomics phase correlation.
         """
         return ImagejMacros.MACRO_PROTEOMICS_PHASE_CORRELATION.format(**P)
+    
+    @staticmethod
+    def get_macro_proteomics_phase_correlation_iterative_solver(P: Dict[str, Any]) -> str:
+        """Generate a phase correlation macro.
+
+        Parameters
+        ----------
+        P : dict
+            Parameter dictionary for macro formatting. Expected keys:
+            - process_xml : str
+            - downsample : int
+
+        Returns
+        -------
+        str
+            Formatted macro string for proteomics phase correlation using the iterative solver.
+        """
+        return ImagejMacros.MACRO_PROTEOMICS_PHASE_CORRELATION_ITERATIVE_SOLVER.format(**P)

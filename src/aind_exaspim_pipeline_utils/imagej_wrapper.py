@@ -359,6 +359,7 @@ def main():  # pragma: no cover
     
     logger.info("Copying input XML %s -> %s", args["dataset_xml"], args["process_xml"])
     shutil.copy(args["dataset_xml"], args["process_xml"])
+    shutil.copy(args["dataset_xml_iterative_solver"], args["process_xml_iterative_solver"])
 
     if args['do_phase_correlation']:
         # logger.info("Creating macro for phase correlation", args["do_phase_correlation"])
@@ -372,7 +373,11 @@ def main():  # pragma: no cover
         #write phase correlation macro
         with open(args["macro_phase_corr"], "w") as f:
             if args["proteomics_dataset"]:
-                f.write(ImagejMacros.get_macro_proteomics_phase_correlation(det_params))
+                # run phase correlation first, then run iterative solving with dropping of bad links for comparison to the non-iterative version
+
+                f.write(ImagejMacros.get_macro_proteomics_phase_correlation(det_params)) #bigstticher.xml
+                shutil.copy(args["process_xml"], f"{det_params['process_xml']}_non-iterative_solver_backup.xml")
+                f.write(ImagejMacros.get_macro_proteomics_phase_correlation_iterative_solver(det_params)) #bigstitcher.xml ? or bigstitcher.xml~1.xml? 
             else:
                 f.write(ImagejMacros.get_macro_phase_correlation(det_params))
         
