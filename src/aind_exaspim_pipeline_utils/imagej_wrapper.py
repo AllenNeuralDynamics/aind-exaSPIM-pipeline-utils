@@ -371,21 +371,24 @@ def main():  # pragma: no cover
     
 
     if args['do_phase_correlation']:
+        # logger.info("Creating macro for phase correlation", args["do_phase_correlation"])
+
+        
         det_params = dict(args["phase_correlation_params"])
         if 'dataset_xml_iterative_solver' in args and args['dataset_xml_iterative_solver']:
-            shutil.copy(args["dataset_xml_iterative_solver"], args["process_xml_iterative_solver"])
+            shutil.copy(args["dataset_xml"], args["process_xml_iterative_solver"])
         det_params["process_xml"] = args["process_xml"]
         if 'parallel' not in det_params:
             det_params['parallel'] = args['parallel']
 
-        #write and run phase correlation macro
+        #write phase correlation macro
         with open(args["macro_phase_corr"], "w") as f:
             if args["proteomics_dataset"]:
                 # run phase correlation first, then run iterative solving with dropping of bad links for comparison to the non-iterative version
 
                 f.write(ImagejMacros.get_macro_proteomics_phase_correlation(det_params)) #bigstticher.xml
                 shutil.copy(args["process_xml"], f"{det_params['process_xml']}_non-iterative_solver_backup.xml")
-                # f.write(ImagejMacros.get_macro_proteomics_phase_correlation_iterative_solver(det_params)) #bigstitcher.xml ? or bigstitcher.xml~1.xml? 
+                f.write(ImagejMacros.get_macro_proteomics_phase_correlation_iterative_solver(det_params)) #bigstitcher.xml ? or bigstitcher.xml~1.xml? 
             else:
                 f.write(ImagejMacros.get_macro_phase_correlation(det_params))
         
@@ -403,34 +406,8 @@ def main():  # pragma: no cover
             ], 
             logger,
         )
-        if r != 0:
-            raise RuntimeError("Phase Correlation command failed.")
-        
-        # For proteomics datasets, backup the result and run iterative solver
-        if args["proteomics_dataset"]:
-            # Copy the output of phase correlation to backup for comparison
-            shutil.copy(args["process_xml"], f"{args['process_xml']}_non-iterative_solver_backup.xml")
-            
-            # Write and run iterative solver macro on the same XML
-            macro_iterative = f"{results_path}/macro_phase_corr_iterative.ijm"
-            with open(macro_iterative, "w") as f:
-                f.write(ImagejMacros.get_macro_proteomics_phase_correlation_iterative_solver(det_params))
-            
-            r = wrapper_cmd_run(
-                [
-                    "ImageJ",
-                    "-Dimagej.updater.disableAutocheck=true",
-                    "--headless",
-                    "--memory",
-                    "{memgb}G".format(**args),
-                    "--console",
-                    "--run",
-                    macro_iterative,
-                ], 
-                logger,
-            )
-            if r != 0:
-                raise RuntimeError("Phase Correlation iterative solver command failed.")
+    if r != 0:
+        raise RuntimeError("Phase Correlation command failed.")
 
 
     if args["do_detection"]:
