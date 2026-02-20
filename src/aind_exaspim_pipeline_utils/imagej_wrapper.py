@@ -428,6 +428,11 @@ def main():  # pragma: no cover
                 ], 
                 logger,
             )
+
+            # now we just need to rename the xml files so it's clear what is what....
+            shutil.copy("/results/bigstitcher.xml~1", f"/results/bigstitcher_iterative_solver.xml")
+            shutil.copy("/results/bigstitcher.xml~1", f"/results/bigstitcher.xml")
+            
             if r != 0:
                 raise RuntimeError("Iterative solver command failed.")
     
