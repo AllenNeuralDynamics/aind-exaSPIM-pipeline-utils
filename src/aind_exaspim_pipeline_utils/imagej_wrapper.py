@@ -407,7 +407,7 @@ def main():  # pragma: no cover
             raise RuntimeError("Phase Correlation command failed.")
 
         if 'dataset_xml_iterative_solver' in args and args['dataset_xml_iterative_solver']:
-            det_params["process_xml_iterative_solver"] = args["dataset_xml_iterative_solver"]
+            det_params["process_xml_iterative_solver"] = "/results/bigstitcher.xml~1"
             shutil.copy(args["process_xml"], f"{det_params['process_xml']}_non-iterative_solver_backup.xml")
             # shutil.copy(args["process_xml"], args["process_xml_iterative_solver"])
             
