@@ -61,7 +61,7 @@ run("Optimize globally and apply shifts ...",
     "process_illumination=[All illuminations] process_tile=[All tiles]" +
     " process_timepoint=[All Timepoints]" +
     " relative={relative_optimization_threshold} absolute={absolute_optimization_threshold} global_optimization_strategy=" +
-    "[Two-Round using Metadata to align unconnected Tiles] fix_group_0-0,");
+    "[Two-Round using Metadata to align unconnected Tiles and iterative dropping of bad links] fix_group_0-0,");
 
 eval("script", "System.exit(0);");
 """
