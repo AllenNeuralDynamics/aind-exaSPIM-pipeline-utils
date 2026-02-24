@@ -411,9 +411,11 @@ def main():  # pragma: no cover
             shutil.copy(args["process_xml"], f"{det_params['process_xml']}_non-iterative_solver_backup.xml")
             # shutil.copy(args["process_xml"], args["process_xml_iterative_solver"])
             
+            logger.debug(f'Creating macro iterative solver {ImagejMacros.get_macro_proteomics_phase_correlation_iterative_solver(det_params)}')
             with open (args["macro_iterative_solver"], "w") as f:
                 f.write(ImagejMacros.get_macro_proteomics_phase_correlation_iterative_solver(det_params)) #bigstitcher.xml ? or bigstitcher.xml~1.xml? 
             
+            logger.debug(f' Running macro iterative solver {args["macro_iterative_solver"]}')
             #run only iterative solver
             r = wrapper_cmd_run(
                 [
@@ -428,6 +430,7 @@ def main():  # pragma: no cover
                 ], 
                 logger,
             )
+            logger.debug(f'Iterative solver finished with return code {r}')
 
             # now we just need to rename the xml files so it's clear what is what....
             shutil.copy("/results/bigstitcher.xml~1", f"/results/bigstitcher_iterative_solver.xml")
