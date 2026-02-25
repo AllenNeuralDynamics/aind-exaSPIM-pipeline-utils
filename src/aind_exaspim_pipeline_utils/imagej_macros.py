@@ -16,6 +16,31 @@ class ImagejMacros:
     """
 
     # Macro templates
+#     MACRO_PHASE_CORRELATION = """
+# run("Memory & Threads...", "parallel={parallel:d}");
+# run("Calculate pairwise shifts ...",
+#     " select={process_xml}" +
+#     " process_angle=[All angles] process_channel=[All channels]" +
+#     " process_illumination=[All illuminations] process_tile=[All tiles] process_timepoint=[All Timepoints]" +
+#     " method=[Phase Correlation] show_expert_grouping_options" +
+#     " how_to_treat_timepoints=group how_to_treat_channels=group how_to_treat_illuminations=group" +
+#     " how_to_treat_angles=group how_to_treat_tiles=compare" +
+#     " channels=[Average Channels]" +
+#     " downsample_in_x={downsample} downsample_in_y={downsample} downsample_in_z={downsample}");
+
+# run("Filter pairwise shifts ...",
+# "select={process_xml} filter_by_link_quality min_r={min_correlation}" +
+# " max_r=1 max_shift_in_x={max_shift_in_x} max_shift_in_y={max_shift_in_y}" +
+# " max_shift_in_z={max_shift_in_z}");
+
+# // do global optimization
+# run("Optimize globally and apply shifts ...",
+#     "select={process_xml} process_angle=[All angles] process_channel=[All channels] " +
+#     "process_illumination=[All illuminations] process_tile=[All tiles]" +
+#     " process_timepoint=[All Timepoints]" +
+#     " relative=2.500 absolute=3.500 global_optimization_strategy=" +
+#     "[Two-Round using Metadata to align unconnected Tiles] fix_group_0-0,");
+
     MACRO_PHASE_CORRELATION = """
 run("Memory & Threads...", "parallel={parallel:d}");
 run("Calculate pairwise shifts ...",
@@ -39,7 +64,7 @@ run("Optimize globally and apply shifts ...",
     "process_illumination=[All illuminations] process_tile=[All tiles]" +
     " process_timepoint=[All Timepoints]" +
     " relative=2.500 absolute=3.500 global_optimization_strategy=" +
-    "[Two-Round using Metadata to align unconnected Tiles] fix_group_0-0,");
+    "[Two-Round using Metadata to align unconnected Tiles and iterative dropping of bad links] fix_group_0-0,");
 
 eval("script", "System.exit(0);");
 """
