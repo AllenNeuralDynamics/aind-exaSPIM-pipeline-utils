@@ -361,6 +361,9 @@ def main():  # pragma: no cover
     args.update(get_auto_parameters(args))
     logger.info("Invocation: %s", sys.argv)
 
+    print("WE ARE IN THE NEWEST PROT BRANCH")
+    logger.info("WE ARE IN THE NEWEST PROT BRANCH")
+
     logger.info("Writing out config.json")
     
     config_path = os.path.join(results_path, "config.json")
